@@ -11,6 +11,10 @@
 现高三，26年高考。平时喜欢折腾点自己感兴趣的东西，代码写得不算多但都是自己想做的。目前在维护 **MCT**（[GitHub](https://github.com/linfon18/MinecraftConnectTool)）和 **某不知名但开了快六年的1.16.5 Java纯生存服务器**（[QQ群](https://qm.qq.com/q/vSO97augpy)），欢迎来玩。
 
 纯新手，就是个做着玩的高中生，东西能用就行，更新 & bug 随缘。
+Other
+爱玩的游戏:
+鸣潮WutheringWaves
+战双帕弥什|GrayRaven:Punishing
 
 ---
 
@@ -19,7 +23,7 @@
 - **后端开发** | Backend: C#
 - **前端开发** | Frontend: HTML/CSS | C#(也许?)
 - **工具与平台** | Tools: Git, Docker, Linux
-- **游戏开发** | Game Dev: Minecraft 插件/工具开发
+- **游戏工具开发** | Game Dev: Minecraft 插件/工具开发
 
 ---
 
@@ -41,13 +45,6 @@
 - 给文件右键菜单塞个"计算MD5"，点一下直接算完+复制到剪贴板
 - 初衷是做MCT的时候需要频繁校验文件，顺手独立出来的
 - 技术栈：C# / Windows注册表操作
-
----
-
-### GitHub 统计 | GitHub Stats
-
-![GitHub Stats](https://github-readme-stats.vercel.app/api?username=linfon18&show_icons=true&theme=radical)
-![Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=linfon18&layout=compact&theme=radical)
 
 ---
 
