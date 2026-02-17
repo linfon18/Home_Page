@@ -1,7 +1,7 @@
 # 个人主页
 
-本fork修改deply.sh以适配EdgeOnePage部署,解决EOPage默认环境下无Python3的问题,引入自动下载
-同时本fork作为个人主页工作
+本fork修改deply.sh以适配EdgeOnePage部署,解决EOPage默认环境下无Python3的问题,引入自动下载<br>
+同时本fork作为个人主页工作<br>
 
 构建部署配置:配置的变更将在下一次部署时生效。
 
