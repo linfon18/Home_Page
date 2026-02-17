@@ -9,10 +9,7 @@
 现高三，26年高考。平时喜欢折腾点自己感兴趣的东西，代码写得不算多但都是自己想做的。目前在维护 **MCT**（[GitHub](https://github.com/linfon18/MinecraftConnectTool)）和 **某不知名但开了快六年的1.16.5 Java纯生存服务器**（[QQ群](https://qm.qq.com/q/vSO97augpy)），欢迎来玩。
 
 纯新手，就是个做着玩的高中生，东西能用就行，更新 & bug 随缘。
-Other
-爱玩的游戏:
-鸣潮WutheringWaves
-战双帕弥什|GrayRaven:Punishing
+Other_爱玩的游戏: 鸣潮WutheringWaves   +   战双帕弥什|GrayRaven:Punishing
 
 ---
 
@@ -54,11 +51,3 @@ Other
 如果你对我的项目感兴趣或有任何问题，欢迎随时联系！
 
 ---
-
-> 🎮 专注于 Minecraft 生态工具开发，致力于改善玩家联机体验。
-> 
-> Focusing on Minecraft ecosystem tools development, dedicated to improving player multiplayer experience.
-
----
-
-如需调整风格（更正式/更活泼）或补充具体项目详情，请告诉我！
