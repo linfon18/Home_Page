@@ -8,57 +8,29 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 获取 Python 命令（优先 python3）
-get_python_cmd() {
-    if command -v python3 &> /dev/null; then
-        echo "python3"
-    elif command -v python &> /dev/null; then
-        echo "python"
-    else
-        echo ""
-    fi
-}
-
-# 获取 pip 命令（使用 python -m pip 方式，避开 pyenv 问题）
-get_pip_cmd() {
-    PYTHON_CMD=$(get_python_cmd)
-    if [ -n "$PYTHON_CMD" ]; then
-        # 测试 python -m pip 是否可用
-        if $PYTHON_CMD -m pip --version &> /dev/null; then
-            echo "$PYTHON_CMD -m pip"
-            return
-        fi
-    fi
-    
-    # 备用方案
-    if command -v pip3 &> /dev/null; then
-        echo "pip3"
-    elif command -v pip &> /dev/null; then
-        echo "pip"
-    else
-        echo ""
-    fi
-}
+# 强制使用 python3 -m pip，完全避开 pyenv 的 pip3 命令
+PYTHON_CMD="python3"
+PIP_CMD="$PYTHON_CMD -m pip"
 
 # 安装依赖
 install_deps() {
     echo -e "${GREEN}正在安装项目依赖...${NC}"
     
-    PYTHON_CMD=$(get_python_cmd)
-    PIP_CMD=$(get_pip_cmd)
-    
-    if [ -z "$PYTHON_CMD" ]; then
-        echo -e "${RED}错误：未找到 Python${NC}"
+    # 验证 Python 可用
+    if ! command -v $PYTHON_CMD &> /dev/null; then
+        echo -e "${RED}错误：未找到 python3${NC}"
         exit 1
     fi
     
-    echo -e "${BLUE}使用 Python: $PYTHON_CMD ($($PYTHON_CMD --version))${NC}"
-    echo -e "${BLUE}使用 pip: $PIP_CMD${NC}"
+    echo -e "${BLUE}Python 版本: $($PYTHON_CMD --version)${NC}"
+    echo -e "${BLUE}Pip 版本: $($PIP_CMD --version)${NC}"
     
     # 升级 pip
+    echo -e "${YELLOW}升级 pip...${NC}"
     $PIP_CMD install --upgrade pip setuptools wheel -q
     
     # 安装依赖
+    echo -e "${YELLOW}安装 requirements.txt...${NC}"
     $PIP_CMD install -r requirements.txt
     
     if [ $? -eq 0 ]; then
@@ -73,20 +45,20 @@ install_deps() {
 build_static() {
     echo -e "${GREEN}🏗️ 正在构建静态文件...${NC}"
     
-    PYTHON_CMD=$(get_python_cmd)
-    if [ -z "$PYTHON_CMD" ]; then
-        echo -e "${RED}错误：未找到 Python${NC}"
-        exit 1
-    fi
-    
-    # 确保依赖已安装
+    # 先安装依赖
     install_deps
     
-    # 运行构建
+    # 运行构建脚本
+    echo -e "${YELLOW}执行 build_static.py...${NC}"
     $PYTHON_CMD build_static.py
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ 构建完成！${NC}"
+        # 显示输出目录内容
+        if [ -d "./dist" ]; then
+            echo -e "${BLUE}输出目录内容:${NC}"
+            ls -la ./dist/
+        fi
     else
         echo -e "${RED}❌ 构建失败${NC}"
         exit 1
@@ -96,6 +68,8 @@ build_static() {
 # 帮助信息
 show_help() {
     echo "用法: bash deploy.sh [install|build]"
+    echo "  install - 安装依赖"
+    echo "  build   - 构建静态文件"
 }
 
 # 主函数
