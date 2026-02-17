@@ -1,7 +1,10 @@
 # 个人主页
+
 本fork修改deply.sh以适配EdgeOnePage部署,解决EOPage默认环境下无Python3的问题,引入自动下载
 同时本fork作为个人主页工作
+
 构建部署配置:配置的变更将在下一次部署时生效。
+
 | 配置项 | 当前值 |
 |--------|--------|
 | 框架预设 | Other |
@@ -9,7 +12,6 @@
 | 输出目录 | 未设置(留空) |
 | 编译命令 | `bash deploy.sh build` |
 | 安装命令 | `bash deploy.sh install` |
-
 
 原README
 一个基于 Flask 的现代化个人主页应用，可展示您的 GitHub 个人信息、项目和技术栈，并支持多种部署方式。
