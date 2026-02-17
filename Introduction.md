@@ -2,7 +2,7 @@
 
 ## 个人主页 | Personal Homepage
 
-欢迎来到我的个人主页！这里是我展示技术探索与项目实践的空间。
+欢迎来到我的个人主页！这里是我展示技术探索与项目实践的空间。(AI)
 
 ---
 
@@ -31,16 +31,16 @@
 - 支持 P2P穿透与中继服务器双模式，解决不同网络环境下的联机难题
 - 技术栈：C# / .NET / 网络编程
 
-#### 2. [MinecraftLogUploader](https://github.com/linfon18/MinecraftLogUploader) - 一键日志分享工具
-**一键分享日志到 mclo.gs | One-click log sharing to mclo.gs**
+#### 2. [FastShareYourLog](https://github.com/linfon18/FastShareYourLog) - 一键日志分享工具
+**一键分享日志 mclo.gs | One-click log sharing to mclo.gs**
 - 跨平台右键菜单工具，快速上传 Minecraft 日志
 - 简化错误排查流程，提升社区技术支持效率
 - 技术栈：C# / Windows API / 跨平台支持
 
-#### 3. [MinecraftConnectTool-Server](https://github.com/linfon18/MinecraftConnectTool-Server) - 服务端组件
-**日志收集服务端 | Log Collection Service**
-- 为联机工具提供中继与日志收集支持
-- 技术栈：C# / 服务端开发
+#### 3. [FastMD5](https://github.com/linfon18/FastMD5) - 右键MD5计算器
+- 给文件右键菜单塞个"计算MD5"，点一下直接算完+复制到剪贴板
+- 初衷是做MCT的时候需要频繁校验文件，顺手独立出来的
+- 技术栈：C# / Windows注册表操作
 
 ---
 
