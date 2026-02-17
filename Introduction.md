@@ -4,22 +4,20 @@
 
 欢迎来到我的个人主页！这里是我展示技术探索与项目实践的空间。
 
-Welcome to my personal homepage! This is my space to showcase technical exploration and project development.
-
 ---
 
-### 关于我 | About Me
+### 关于我 | About
 
-我是一名热爱编程的开发者，专注于探索前沿技术并解决实际问题。我享受将创意转化为代码的过程，致力于构建高质量的软件解决方案。
+现高三，26年高考。平时喜欢折腾点自己感兴趣的东西，代码写得不算多但都是自己想做的。目前在维护 **MCT**（[GitHub](https://github.com/linfon18/MinecraftConnectTool)）和 **某不知名但开了快六年的1.16.5 Java纯生存服务器**（[QQ群](https://qm.qq.com/q/vSO97augpy)），欢迎来玩。
 
-I'm a passionate developer focused on exploring cutting-edge technologies and solving real-world problems. I enjoy turning ideas into code and building high-quality software solutions.
+纯新手，就是个做着玩的高中生，东西能用就行，更新 & bug 随缘。
 
 ---
 
 ### 技术栈 | Tech Stack
 
-- **后端开发** | Backend: Python, Node.js, C#
-- **前端开发** | Frontend: JavaScript, TypeScript, React, HTML/CSS
+- **后端开发** | Backend: C#
+- **前端开发** | Frontend: HTML/CSS | C#(也许?)
 - **工具与平台** | Tools: Git, Docker, Linux
 - **游戏开发** | Game Dev: Minecraft 插件/工具开发
 
@@ -33,7 +31,7 @@ I'm a passionate developer focused on exploring cutting-edge technologies and so
 - 支持 P2P穿透与中继服务器双模式，解决不同网络环境下的联机难题
 - 技术栈：C# / .NET / 网络编程
 
-#### 2. [MinecraftLogUploader](https://github.com/linfon18/MinecraftLogUploader) - 日志分享工具
+#### 2. [MinecraftLogUploader](https://github.com/linfon18/MinecraftLogUploader) - 一键日志分享工具
 **一键分享日志到 mclo.gs | One-click log sharing to mclo.gs**
 - 跨平台右键菜单工具，快速上传 Minecraft 日志
 - 简化错误排查流程，提升社区技术支持效率
@@ -59,8 +57,6 @@ I'm a passionate developer focused on exploring cutting-edge technologies and so
 - 💬 **项目交流**: 欢迎通过 Issues 或 Discussions 联系
 
 如果你对我的项目感兴趣或有任何问题，欢迎随时联系！
-
-Feel free to reach out if you're interested in my projects or have any questions!
 
 ---
 
