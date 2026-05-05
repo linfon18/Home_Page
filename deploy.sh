@@ -1,4 +1,6 @@
 #!/bin/bash
+export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v pyenv | tr '\n' ':')
+
 
 # 个人主页部署脚本 - 强制使用 pyenv 的 Python 3.11.6
 
