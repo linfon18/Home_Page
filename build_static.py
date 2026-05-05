@@ -3,14 +3,8 @@
 自定义静态文件构建脚本
 这个脚本将直接使用Flask测试客户端来生成静态HTML文件
 """
-import subprocess, sys
-
-# 自主安装依赖，绕过构建器 pyenv 的 chmod 权限限制
-_deps = ["flask", "markdown", "pyyaml", "python-dotenv", "requests"]
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *_deps],
-                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
 import os
+import sys
 import shutil
 import importlib.util
 import json  # 导入json模块
@@ -141,4 +135,4 @@ print("\n注意：")
 print("1. 使用GitHub Pages部署方式不需要配置GitHub Token")
 print("2. 部署不会在仓库中产生额外的提交记录")
 print("3. 确保GitHub仓库启用了GitHub Pages功能")
-print("4. 访问路径通常为 `https://YOUR_USERNAME.github.io/YOUR_REPO/`")
+print("4. 访问路径通常为 https://YOUR_USERNAME.github.io/YOUR_REPO/")
