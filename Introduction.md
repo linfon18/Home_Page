@@ -24,7 +24,7 @@ Other_爱玩的游戏: 鸣潮WutheringWaves   +   战双帕弥什|GrayRaven:Puni
 
 ### 精选项目 | Featured Projects
 
-#### 1. [MinecraftConnectTool](https://github.com/linfon18/MinecraftConnectTool) - 联机工具箱
+#### 1. [MinecraftConnectTool](https://github.com/MCZLF/MinecraftConnectTool) - 联机工具箱
 **混合多人联机连接器 | Hybrid Multiplayer Connector**
 - 采用 OpenP2P NAT穿透 + MCILM-Link 中继双模架构
 - 支持 P2P穿透与中继服务器双模式，解决不同网络环境下的联机难题
