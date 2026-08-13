@@ -6,7 +6,7 @@
 
 ### 关于我 | About
 
-现高三，26年高考，现就读于深圳信息职业技术大学-智能互联网络技术专业，平时喜欢折腾点自己感兴趣的东西，代码写得不算多但都是自己想做的。目前在维护 **MCT**（[GitHub](https://github.com/linfon18/MinecraftConnectTool)）和 **某不知名但开了快六年的1.16.5 Java纯生存服务器**（[QQ群](https://qm.qq.com/q/vSO97augpy)），欢迎来玩。
+现大一，就读于深圳信息职业技术大学-智能互联网络技术专业，平时喜欢折腾点自己感兴趣的东西，代码写得不算多但都是自己想做的。目前在维护 **MCT**（[GitHub](https://github.com/linfon18/MinecraftConnectTool)）和 **某不知名但开了快六年的1.16.5 Java纯生存服务器**（[QQ群](https://qm.qq.com/q/vSO97augpy)），欢迎来玩。
 
 纯新手，啥都只是懂点，东西能用就行，大佬勿喷，更新 & bug 随缘。
 Other_爱玩的游戏: 鸣潮WutheringWaves   +   战双帕弥什|GrayRaven:Punishing     +    骑士学院KnightsCollege
