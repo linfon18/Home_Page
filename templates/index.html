@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ github_info.name }} - 个人主页</title>
-    <!-- 网页图标，使用用户头像并确保是圆形的 -->
+    {% if github_info.bio %}
+    <meta name="description" content="{{ github_info.bio }}">
+    {% else %}
+    <meta name="description" content="{{ github_info.name }} 的个人主页，探索开源项目与技术分享。">
+    {% endif %}
+    <meta property="og:title" content="{{ github_info.name }} - 个人主页">
+    <meta property="og:description" content="{% if github_info.bio %}{{ github_info.bio }}{% else %}{{ github_info.name }} 的个人主页，探索开源项目与技术分享。{% endif %}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://linfon18.loft.games/">
+    <meta property="og:site_name" content="{{ github_info.name }} 的个人主页">
+    <meta property="og:locale" content="zh_CN">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ github_info.name }} - 个人主页">
+    <link rel="canonical" href="https://linfon18.loft.games/">
     {% if github_info.avatar_url %}
     <link rel="icon" href="{{ github_info.avatar_url }}" type="image/png">
-    <!-- 使用SVG过滤器确保头像显示为圆形 -->
-    <svg width="0" height="0" style="position:absolute;">
-        <filter id="roundAvatar">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="0" result="blur"/>
-            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo"/>
-            <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
-        </filter>
-    </svg>
-    <style>
-        link[rel="icon"] {
-            filter: url(#roundAvatar);
-        }
-    </style>
     {% endif %}
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
