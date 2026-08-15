@@ -4,19 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ github_info.name }} - 个人主页</title>
-    {% if github_info.bio %}
-    <meta name="description" content="{{ github_info.bio }}">
-    {% else %}
-    <meta name="description" content="{{ github_info.name }} 的个人主页，探索开源项目与技术分享。">
-    {% endif %}
+    <meta name="description" content="linfon18 的个人主页 - 全栈开发爱好者，Minecraft 工具开发者，MCT 联机工具作者，分享开源项目与技术实践。">
     <meta property="og:title" content="{{ github_info.name }} - 个人主页">
-    <meta property="og:description" content="{% if github_info.bio %}{{ github_info.bio }}{% else %}{{ github_info.name }} 的个人主页，探索开源项目与技术分享。{% endif %}">
+    <meta property="og:description" content="linfon18 的个人主页 - 全栈开发爱好者，Minecraft 工具开发者，MCT 联机工具作者，分享开源项目与技术实践。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://linfon18.loft.games/">
     <meta property="og:site_name" content="{{ github_info.name }} 的个人主页">
     <meta property="og:locale" content="zh_CN">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{{ github_info.name }} - 个人主页">
+    <meta name="twitter:description" content="linfon18 的个人主页 - 全栈开发爱好者，Minecraft 工具开发者，MCT 联机工具作者，分享开源项目与技术实践。">
     <link rel="canonical" href="https://linfon18.loft.games/">
     {% if github_info.avatar_url %}
     <link rel="icon" href="{{ github_info.avatar_url }}" type="image/png">
