@@ -21,7 +21,9 @@ tags: EdgeOne, Node.js, 静态网站
 - 构建命令：`bash 部署.sh build`
 - 输出目录：`dist`
 
-原来的 `bash deploy.sh build` 命令也保留了。和旧版本相比，需要把输出目录从留空改成 `dist`。
+仓库根目录的 `edgeone.json` 已设置构建命令、安装命令、`dist` 输出目录和 Node.js 14.21.3，部署时覆盖控制台对应设置。原来的 `bash deploy.sh build` 命令也保留了，控制台手动配置时，输出目录应填写 `dist`。
+
+`index.html` 不在源码根目录，而是由构建生成在 `dist/index.html`。如果构建成功后首页仍显示旧版 404，而 `/dist/index.html` 可以打开，说明发布的是仓库根目录。确认输出目录为 `dist` 后重新部署即可；不需要把生成的首页提交到源码根目录。
 
 ## 本地看效果
 

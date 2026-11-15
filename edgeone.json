@@ -1,0 +1,6 @@
+{
+  "buildCommand": "bash deploy.sh build",
+  "installCommand": "bash deploy.sh install",
+  "outputDirectory": "dist",
+  "nodeVersion": "14.21.3"
+}
