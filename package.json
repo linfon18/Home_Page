@@ -1,0 +1,9 @@
+{
+  "name": "linfon18-personal-space",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A personal space for code, play and curiosity.",
+  "engines": { "node": ">=14" },
+  "scripts": { "build": "node build.js", "dev": "node server.js", "start": "node server.js" },
+  "license": "MIT"
+}

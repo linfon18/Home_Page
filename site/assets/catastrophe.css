@@ -1,0 +1,5 @@
+.catastrophe-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:900;pointer-events:none}
+.catastrophe-active .site-header,.catastrophe-active main,.catastrophe-active .site-footer{animation:terminal-quake .22s linear 7!important}
+@keyframes terminal-quake{0%,100%{translate:0 0}15%{translate:-5px 2px}35%{translate:5px -3px}55%{translate:-3px -1px}75%{translate:3px 3px}}
+@media(prefers-reduced-motion:reduce){.catastrophe-active .site-header,.catastrophe-active main,.catastrophe-active .site-footer{animation:none!important}}
+@media print{.catastrophe-canvas{display:none!important}}
