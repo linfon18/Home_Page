@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const desktop=matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const compact=matchMedia('(max-width: 767px), (pointer: coarse)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const toggle=document.querySelector('[data-live2d-toggle]');if(!toggle)return;
   const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n)),random=(a,b)=>a+Math.random()*(b-a),tau=Math.PI*2;
   let app=null,model=null,widget=null,animator=null,loading=false,hidden=false,awayAt=0;
@@ -8,7 +8,7 @@
   try{hidden=localStorage.getItem('linfon-live2d')==='hidden';}catch(_){}
   function script(src){return new Promise((resolve,reject)=>{const el=document.createElement('script');el.src=src;el.onload=resolve;el.onerror=reject;document.head.append(el);});}
   function state(){
-    const visible=desktop.matches&&!hidden&&!document.hidden&&!document.querySelector('dialog[open]');
+    const visible=!hidden&&!document.hidden&&!document.querySelector('dialog[open]');
     toggle.setAttribute('aria-pressed',String(!hidden));toggle.setAttribute('aria-label',hidden?'显示 Live2D':'隐藏 Live2D');
     if(!widget)return;widget.hidden=!visible;
     if(!visible){lastSelection='';if(animator)animator.clearGesture();}
@@ -16,6 +16,7 @@
   }
   function layout(){
     if(!app||!model)return;const width=widget.clientWidth,height=widget.clientHeight;if(!width||!height)return;
+    app.renderer.resolution=Math.min(devicePixelRatio||1,compact.matches?1.25:1.5);app.ticker.maxFPS=compact.matches?24:30;
     app.renderer.resize(width,height);model.scale.set(1);
     const scale=Math.min(width*.98/model.width,height*.98/model.height);model.scale.set(scale);model.anchor.set(.5,1);model.position.set(width/2,height);app.renderer.render(app.stage);
   }
@@ -147,18 +148,18 @@
     return {begin,context,notice,tap,inspect,clearGesture,isInspecting:()=>!!action&&action.kind==='inspect',move(hit,x,y){if(performance.now()-lastHitAt<55)return;lastHitAt=performance.now();strokeAt(hit,x,y);}};
   }
   async function load(){
-    if(!desktop.matches||hidden||model||loading)return;loading=true;
+    if(hidden||model||loading)return;loading=true;
     try{
-      // Gate the runtime, model and textures before making any mobile request.
-      await script('/assets/vendor/pixi.min.js?v=6.5.10');await script('/assets/vendor/live2dcubismcore.min.js?v=25ae938c');await script('/assets/vendor/cubism4.min.js?v=0.4.0');if(!desktop.matches)return;
+      // Both touch and mouse devices load the same model after the page is ready.
+      await script('/assets/vendor/pixi.min.js?v=6.5.10');await script('/assets/vendor/live2dcubismcore.min.js?v=25ae938c');await script('/assets/vendor/cubism4.min.js?v=0.4.0');
       widget=document.createElement('aside');widget.className='live2d-widget';widget.hidden=true;widget.setAttribute('aria-label','蓝龙 Live2D');
       const canvas=document.createElement('canvas');canvas.setAttribute('aria-label','蓝龙：点击不同部位互动，滑动摸头；回车摸头，空格扇翅，左右键侧头，上键惊喜，下键摇尾');canvas.setAttribute('role','button');canvas.tabIndex=0;
       canvas.addEventListener('keydown',e=>{const kind=e.key==='Enter'?'head':e.key===' '?'wing':e.key==='ArrowDown'?'tail':e.key==='ArrowUp'?'surprise':e.key==='ArrowLeft'||e.key==='ArrowRight'?'curious':'';if(kind&&animator){e.preventDefault();animator.begin(kind,e.key==='ArrowLeft'?-1:1);}});
       const magnifier=document.createElement('span');magnifier.className='dragon-magnifier';magnifier.hidden=true;magnifier.setAttribute('aria-hidden','true');
       magnifier.innerHTML='<svg viewBox="0 0 74 110" fill="none"><defs><clipPath id="dragon-lens-clip"><circle cx="42" cy="34" r="20"/></clipPath><radialGradient id="dragon-lens-glow" cx=".3" cy=".25" r=".8"><stop stop-color="#f2fcff" stop-opacity=".95"/><stop offset="1" stop-color="#a2dded" stop-opacity=".75"/></radialGradient></defs><path d="M32 57 14 98" stroke="#182c42" stroke-width="11" stroke-linecap="round"/><path d="M31 58 16 92" stroke="#47677a" stroke-width="6" stroke-linecap="round"/><path d="m29 63 4-9" stroke="#e9be65" stroke-width="9"/><circle cx="42" cy="34" r="24" fill="#e6b75b" stroke="#243e55" stroke-width="2"/><circle cx="42" cy="34" r="20.5" fill="url(#dragon-lens-glow)" stroke="#628b9f" stroke-width="1.5"/><g clip-path="url(#dragon-lens-clip)"><text x="42" y="38" text-anchor="middle" fill="#233e51" font-family="sans-serif" font-size="12" font-weight="600"></text><path d="M27 28a16 16 0 0 1 12-10M52 43l3-4" stroke="white" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/></g></svg>';
       const close=document.createElement('button');close.className='live2d-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','隐藏 Live2D');close.addEventListener('click',()=>setHidden(true));widget.append(canvas,magnifier,close);document.body.append(widget);
-      app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:Math.min(devicePixelRatio||1,1.5),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=30;
-      model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>model.update(app.ticker.deltaMS));animator=createAnimator();model.update(0);
+      app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:Math.min(devicePixelRatio||1,compact.matches?1.25:1.5),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=compact.matches?24:30;
+      model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>{if(reduced.matches||widget.hidden||document.hidden){state();return;}model.update(app.ticker.deltaMS);});animator=createAnimator();model.update(0);
       widget._live2d=model;widget._app=app;widget.dataset.ready='true';state();layout();if(!reduced.matches)animator.begin('happy',1,false,'context');
     }catch(error){if(app){app.destroy(true,{children:true,texture:true,baseTexture:true});app=null;}if(widget)widget.remove();widget=null;model=null;animator=null;toggle.dataset.unavailable='true';console.warn('Live2D unavailable:',error&&error.message||error);}
     finally{loading=false;}
@@ -208,7 +209,7 @@
   document.addEventListener('pointerup',()=>{selecting=false;readSelection();},{passive:true});
   document.addEventListener('pointercancel',()=>{selecting=false;readSelection();},{passive:true});
   addEventListener('blur',()=>{selecting=false;clearTimeout(selectionTimer);if(animator)animator.clearGesture();});
-  addEventListener('resize',layout);desktop.addEventListener('change',()=>{state();if(desktop.matches){load();layout();}});reduced.addEventListener('change',state);
+  addEventListener('resize',layout);compact.addEventListener('change',layout);reduced.addEventListener('change',state);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)awayAt=performance.now();state();if(!document.hidden&&animator&&performance.now()-awayAt>20000)animator.context('happy');});
   addEventListener('pagehide',()=>{if(app)app.stop();});addEventListener('pageshow',state);new MutationObserver(state).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
   new MutationObserver(()=>{if(animator)animator.context('curious');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -221,5 +222,5 @@
   }
   watchTerminal();addEventListener('site-page',()=>{watchTerminal();state();layout();});
   document.addEventListener('site-page-before',()=>{if(terminalObserver)terminalObserver.disconnect();clearTimeout(selectionTimer);lastSelection='';selecting=false;if(animator)animator.clearGesture();});
-  state();if(desktop.matches){if('requestIdleCallback' in window)requestIdleCallback(load,{timeout:1800});else setTimeout(load,700);}
+  state();if('requestIdleCallback' in window)requestIdleCallback(load,{timeout:1800});else setTimeout(load,700);
 })();

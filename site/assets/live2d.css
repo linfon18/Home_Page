@@ -8,5 +8,5 @@
 .dragon-spark{position:absolute;z-index:2;pointer-events:none;color:#f2c366;font:18px/1 sans-serif;text-shadow:0 1px 7px #e6aa5770;animation:dragon-spark 1.2s ease-out both}.dragon-spark.is-heart{color:#ec8aa5;font-size:14px;text-shadow:0 1px 7px #dd6d9550}
 @keyframes dragon-spark{0%{opacity:0;transform:translate(-50%,-20%) scale(.3)}18%{opacity:.9}100%{opacity:0;transform:translate(var(--spark-x),var(--spark-y)) rotate(var(--spark-turn)) scale(.6)}}
 @media(prefers-reduced-motion:reduce){.dragon-spark{display:none}}
-@media(max-width:767px),(hover:none),(pointer:coarse){.live2d-widget,[data-live2d-toggle]{display:none!important}}
+@media(max-width:767px),(pointer:coarse){.live2d-widget{right:max(4px,env(safe-area-inset-right));bottom:env(safe-area-inset-bottom,0px);width:clamp(104px,28vw,136px);height:clamp(138px,37vw,180px)}.live2d-close{top:0;right:0;width:44px;height:44px;font-size:20px;border:0;background:transparent}}
 @media print{.live2d-widget,[data-live2d-toggle]{display:none!important}}
