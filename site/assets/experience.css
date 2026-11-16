@@ -1,6 +1,6 @@
 /* The front door: a person, an open terminal, and a few things worth keeping. */
 .wallpaper{transform:translate3d(var(--scene-x,0px),var(--scene-y,0px),0) scale(1.045);will-change:transform}
-.wallpaper:after{background:#e7f0fba8;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}[data-theme=dark] .wallpaper:after{background:#060f20c4}
+.wallpaper:after{background:#e7f0fba8;backdrop-filter:none;-webkit-backdrop-filter:none}[data-theme=dark] .wallpaper:after{background:#060f20c4}
 .main-home{display:block;max-width:1120px;width:calc(100% - 80px);min-height:0;margin:50px auto 0;padding:0 0 58px}
 .home-stage{display:grid;grid-template-columns:1fr 1.04fr;gap:32px;align-items:start}
 .home-profile{padding:27px 36px 24px;border-radius:36px;min-width:0;box-shadow:none;animation:home-enter .9s cubic-bezier(.16,1,.3,1) both}

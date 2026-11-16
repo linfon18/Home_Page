@@ -13,7 +13,8 @@
 @keyframes motto-line{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}
 @keyframes orbit-breathe{0%,100%{transform:rotate(-7deg) scale(1);opacity:.4}50%{transform:rotate(9deg) scale(1.04);opacity:.85}}
 @keyframes orbit-spark{0%,100%{opacity:.35;transform:scale(.7)}50%{opacity:1;transform:scale(1.25)}}
-@media(hover:hover) and (pointer:fine){.home-entry:hover,.contact-card:hover,.game-card:hover{translate:0 -4px}}
+/* Keep the hit area still, including when the pointer rests on a rounded edge. */
+.home-entry:hover,.home-project:hover,.contact-card:hover,.game-card:hover{translate:none;transform:none}
 @media(max-width:680px){.main-nav{position:absolute}}
 @media(prefers-reduced-motion:reduce){.ambient-field{display:none}.nav-tracker,.main-nav>a,.home-social>a .icon,.project-mini-icon .icon,.button,.icon-button{transition:none}.home-name h1,.home-name h1>span,.home-name>p:after,.avatar-orbit:before,.avatar-orbit:after,.reading-page .prose>h2:before{animation:none}.button:active,.icon-button:active{scale:1}.home-entry:hover,.contact-card:hover,.game-card:hover{translate:none}}
 @media print{.ambient-field,.nav-tracker{display:none}}

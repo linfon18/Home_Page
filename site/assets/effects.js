@@ -22,13 +22,13 @@
       star.y-=star.speed*dt;star.x+=Math.sin(time*.2+star.phase)*dt*1.8;if(star.y< -10)star.y=height+10;
       const glow=.55+.45*Math.sin(time*.9+star.phase);ctx.fillStyle='rgba('+color+','+(alpha*(.38+glow*.62))+')';ctx.beginPath();ctx.arc(star.x,star.y,star.r,0,Math.PI*2);ctx.fill();
       if(!compact.matches){
-        const distance=Math.hypot(star.x-pointer.x,star.y-pointer.y);
-        if(distance<165){ctx.strokeStyle='rgba('+color+','+(.26*(1-distance/165))+')';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(star.x,star.y);ctx.lineTo(pointer.x,pointer.y);ctx.stroke();}
+        const dx=star.x-pointer.x,dy=star.y-pointer.y,distance2=dx*dx+dy*dy;
+        if(distance2<27225){const distance=Math.sqrt(distance2);ctx.strokeStyle='rgba('+color+','+(.26*(1-distance/165))+')';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(star.x,star.y);ctx.lineTo(pointer.x,pointer.y);ctx.stroke();}
       }
     }
     for(let n=0;n<stars.length;n++)for(let k=n+1;k<stars.length;k++){
-      const a=stars[n],b=stars[k],distance=Math.hypot(a.x-b.x,a.y-b.y);
-      if(distance<95){ctx.strokeStyle='rgba('+color+','+(.11*(1-distance/95))+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+      const a=stars[n],b=stars[k],dx=a.x-b.x,dy=a.y-b.y,distance2=dx*dx+dy*dy;
+      if(distance2<9025){const distance=Math.sqrt(distance2);ctx.strokeStyle='rgba('+color+','+(.11*(1-distance/95))+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
     }
     // A short shooting arc passes through an empty edge of the sky.
     const phase=time%13;if(phase<1.8){const p=phase/1.8,x=width*(.15+p*.55),y=height*.07+p*height*.22;const gradient=ctx.createLinearGradient(x-95,y-30,x,y);gradient.addColorStop(0,'rgba('+color+',0)');gradient.addColorStop(1,'rgba('+color+','+(Math.sin(p*Math.PI)*.65)+')');ctx.strokeStyle=gradient;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x-95,y-30);ctx.lineTo(x,y);ctx.stroke();}

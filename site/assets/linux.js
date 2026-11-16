@@ -8,12 +8,15 @@ SitePage.register('linux', scope => {
   const state={timeout:1200,retries:3},pick=items=>items[Math.floor(Math.random()*items.length)],integer=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
   const element=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
   const caret=()=>element('span','linux-caret',' ');
-  function updateControl(){toggle.setAttribute('aria-pressed',String(paused));toggle.setAttribute('aria-label',paused?'继续终端播放':'暂停终端播放');control.textContent=paused?'▶':'Ⅱ';screen.classList.toggle('is-paused',paused);screen.classList.toggle('is-interacting',interacting);}
+  let inView=true,releaseWait=null,sleepTimer=0;
+  function wakeWait(){clearTimeout(sleepTimer);sleepTimer=0;if(releaseWait){const resolve=releaseWait;releaseWait=null;resolve();}}
+  function updateControl(){toggle.setAttribute('aria-pressed',String(paused));toggle.setAttribute('aria-label',paused?'继续终端播放':'暂停终端播放');control.textContent=paused?'▶':'Ⅱ';screen.classList.toggle('is-paused',paused);screen.classList.toggle('is-interacting',interacting);wakeWait();}
   scope.on(document,'terminal-interaction',event=>{interacting=!!event.detail;updateControl();if(!interacting)label.textContent=sceneLabel;});
   toggle.addEventListener('click',()=>{paused=!paused;updateControl();});
   scope.on(reduced,'change',()=>{if(reduced.matches){paused=true;updateControl();}});
-  scope.on(document,'visibilitychange',()=>visible=!document.hidden);scope.on(window,'pagehide',()=>closing=true);
-  async function wait(ms){let remaining=ms;while(remaining>0&&!closing){const slice=Math.min(remaining,60);await new Promise(resolve=>setTimeout(resolve,slice));if(!paused&&!interacting&&visible)remaining-=slice;}}
+  scope.on(document,'visibilitychange',()=>{visible=!document.hidden;wakeWait();});scope.on(window,'pagehide',()=>{visible=false;wakeWait();});scope.on(window,'pageshow',()=>{visible=!document.hidden;wakeWait();});
+  const viewportObserver=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;wakeWait();});viewportObserver.observe(screen);
+  async function wait(ms){let remaining=ms;while(remaining>0&&!closing){const running=!paused&&!interacting&&visible&&inView,start=performance.now();await new Promise(resolve=>{releaseWait=resolve;if(running)sleepTimer=setTimeout(wakeWait,remaining);});if(running)remaining-=Math.max(0,performance.now()-start);}}
   function bottom(){lines.scrollTop=lines.scrollHeight;}
   function out(text,cls=''){const row=element('div','linux-line '+cls,text);lines.append(row);while(lines.children.length>90)lines.firstElementChild.remove();bottom();return row;}
   function prompt(kind='shell'){
@@ -300,6 +303,6 @@ SitePage.register('linux', scope => {
       if(cycle%2===0)await clean();
     }
   }
-  scope.cleanup(()=>{closing=true;});
+  scope.cleanup(()=>{closing=true;viewportObserver.disconnect();wakeWait();});
   updateControl();if(paused)label.textContent='bash';run().catch(()=>{paused=true;updateControl();label.textContent='已暂停';});
 });

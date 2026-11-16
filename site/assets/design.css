@@ -4,7 +4,8 @@
 body{min-height:100svh}
 .wallpaper{inset:0;transform:none;will-change:auto;background-image:url('/assets/original-background.jpg');background-position:center;background-size:cover}
 [data-theme=dark] .wallpaper{background-image:url('/assets/original-background.jpg')}
-.wallpaper:after{background:#e7f0fb8c;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.wallpaper:before{content:"";position:absolute;inset:0;background-image:inherit;background-position:center;background-size:cover;filter:blur(3px);pointer-events:none}
+.wallpaper:after{background:#e7f0fb8c;backdrop-filter:none;-webkit-backdrop-filter:none}
 [data-theme=dark] .wallpaper:after{background:#060f20b8}
 .pane{background:var(--pane);border:1px solid var(--line);border-radius:28px;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}.pane:before{display:none}
 [data-theme=dark] .pane{border-color:var(--line);box-shadow:none}

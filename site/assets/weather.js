@@ -7,6 +7,7 @@
   const status=root.querySelector('[data-weather-status]'),message=root.querySelector('[data-weather-message]'),cityInput=root.querySelector('[data-weather-city]'),form=root.querySelector('form'),refresh=root.querySelector('[data-weather-refresh]');
   const canvas=document.createElement('canvas');canvas.className='weather-field';canvas.setAttribute('aria-hidden','true');canvas.hidden=true;document.body.prepend(canvas);
   const ctx=canvas.getContext('2d'),key='linfon-weather-v1',cacheKey=key+'-cache',period=20*60*1000,maxAge=2*60*60*1000;
+  const surfaces=window.createWeatherSurfaces(canvas,compact);
   let mode='auto',city='',weather=null,error='',pending=false,controller=null,requestId=0,refreshTimer=0,frame=0,last=0,time=0,width=0,height=0,particles=[],effect='clear',dark=false,disposed=false;
   const rand=(a,b)=>a+Math.random()*(b-a);
   try{const pref=JSON.parse(localStorage.getItem(key));if(pref&&Object.prototype.hasOwnProperty.call(modes,pref.mode)){mode=pref.mode;city=String(pref.city||'').slice(0,80);}}catch(_){}
@@ -67,20 +68,24 @@
   function wake(){if(!frame&&ctx&&!canvas.hidden&&!disposed)frame=requestAnimationFrame(draw);}
   function state(){
     dark=document.documentElement.dataset.theme==='dark';const hidden=disposed||mode==='off'||effect==='clear'||reduced.matches||document.hidden||!!document.querySelector('dialog[open]');canvas.hidden=hidden;
+    surfaces.set(effect,hidden);
     if(hidden){stop();if(ctx)ctx.clearRect(0,0,width,height);}else wake();
   }
   function draw(now){
     frame=0;if(canvas.hidden||disposed)return;const interval=compact.matches?42:32;if(last&&now-last<interval){wake();return;}
     const dt=last?Math.min((now-last)/1000,.06):0;last=now;time+=dt;ctx.clearRect(0,0,width,height);
-    const color=dark?'186,211,238':'42,79,119';
+    const color=dark?'186,211,238':'42,79,119';surfaces.measure();
+    ctx.save();if(effect==='rain'||effect==='snow')surfaces.clip(ctx);
     if(effect==='fog'){
       for(const p of particles){p.x+=dt*p.speed*9;if(p.x>width*1.6)p.x=-width*.6;const x=p.x+Math.sin(time*.15+p.phase)*50,y=(p.phase/6.29)*height,r=Math.max(width*.38,200);const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,dark?'rgba(176,191,208,.08)':'rgba(126,144,164,.075)');g.addColorStop(1,'rgba(140,160,180,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);}
     }else for(const p of particles){
-      if(effect==='rain'){p.x-=dt*90*p.speed;p.y+=dt*720*p.speed;ctx.strokeStyle='rgba('+color+',.30)';ctx.lineWidth=.75;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+3,p.y-16*p.speed);ctx.stroke();}
-      else if(effect==='snow'){p.x+=dt*(Math.sin(time*.6+p.phase)*22+p.vx*.3);p.y+=dt*48*p.speed;ctx.fillStyle=dark?'rgba(236,245,255,.7)':'rgba(250,253,255,.88)';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}
+      const oldX=p.x,oldY=p.y;
+      if(effect==='rain'){p.x-=dt*90*p.speed;p.y+=dt*720*p.speed;if(surfaces.collide(p,oldX,oldY)){p.y=rand(-90,-10);p.x=rand(0,width);continue;}ctx.strokeStyle='rgba('+color+',.30)';ctx.lineWidth=.75;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+3,p.y-16*p.speed);ctx.stroke();}
+      else if(effect==='snow'){p.x+=dt*(Math.sin(time*.6+p.phase)*22+p.vx*.3);p.y+=dt*48*p.speed;if(surfaces.collide(p,oldX,oldY)){p.y=rand(-90,-10);p.x=rand(0,width);continue;}ctx.fillStyle=dark?'rgba(236,245,255,.7)':'rgba(250,253,255,.88)';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}
       else if(effect==='hail'){p.x+=dt*(p.bounce?p.vx*4:-65);p.y+=dt*p.speed;if(!p.bounce&&p.y>=height-6){p.y=height-6;p.speed=-rand(100,210);p.bounce=1;}if(p.bounce)p.speed+=dt*850;ctx.fillStyle=dark?'rgba(216,235,255,.7)':'rgba(213,231,248,.85)';ctx.strokeStyle='rgba('+color+',.35)';ctx.lineWidth=.65;ctx.beginPath();ctx.arc(p.x,p.y,p.size*.85+.6,0,Math.PI*2);ctx.fill();ctx.stroke();}
       if(p.y>height+25||p.x< -70||p.x>width+70){p.y=rand(-90,-10);p.x=rand(0,width);p.bounce=0;p.speed=effect==='hail'?rand(430,760):rand(.6,1.4);}
     }
+    ctx.restore();surfaces.draw(ctx,dt,time,dark);
     canvas.dataset.frames=String((Number(canvas.dataset.frames)||0)+1);wake();
   }
   addEventListener('resize',resize);document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelRequest();state();}else{if(mode==='auto')update();state();}});

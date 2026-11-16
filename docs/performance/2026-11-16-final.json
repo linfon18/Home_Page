@@ -1,0 +1,545 @@
+[
+  {
+    "case": "idle",
+    "seconds": 6.001997299999857,
+    "metrics": {
+      "TaskDuration": 0.877123,
+      "ScriptDuration": 0.553297,
+      "LayoutDuration": 0.016748,
+      "RecalcStyleDuration": 0.059979,
+      "LayoutCount": 45,
+      "RecalcStyleCount": 611
+    },
+    "top": [
+      {
+        "function": "(idle)",
+        "url": "",
+        "line": -1,
+        "samples": 3305
+      },
+      {
+        "function": "(program)",
+        "url": "",
+        "line": -1,
+        "samples": 169
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 54
+      },
+      {
+        "function": "draw",
+        "url": "effects.js?v=f6eb56a46899",
+        "line": 15,
+        "samples": 31
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 29
+      },
+      {
+        "function": "evaluate",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 27
+      },
+      {
+        "function": "tick",
+        "url": "live2d.js?v=a21d4ae96a6f",
+        "line": 170,
+        "samples": 24
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 22
+      },
+      {
+        "function": "bufferData",
+        "url": "",
+        "line": -1,
+        "samples": 14
+      },
+      {
+        "function": "setupShaderProgram",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 9
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 9
+      },
+      {
+        "function": "(garbage collector)",
+        "url": "",
+        "line": -1,
+        "samples": 7
+      },
+      {
+        "function": "querySelector",
+        "url": "",
+        "line": -1,
+        "samples": 7
+      },
+      {
+        "function": "doDrawModel",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 6
+      },
+      {
+        "function": "bufferData",
+        "url": "",
+        "line": -1,
+        "samples": 6
+      },
+      {
+        "function": "wt",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 5
+      },
+      {
+        "function": "gl.bufferData",
+        "url": "live2d-performance.js?v=df73686b6e30",
+        "line": 29,
+        "samples": 5
+      },
+      {
+        "function": "",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 4
+      }
+    ],
+    "info": {
+      "calls": {
+        "renders": 214,
+        "updates": 214,
+        "rects": 0,
+        "styles": 0
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "live2d": {
+        "width": 480,
+        "height": 620,
+        "maxFPS": 36,
+        "mask": "1024"
+      },
+      "ambient": 176,
+      "weather": 0
+    },
+    "errors": []
+  },
+  {
+    "case": "pointer",
+    "seconds": 7.618846199999098,
+    "metrics": {
+      "TaskDuration": 1.42177,
+      "ScriptDuration": 0.734479,
+      "LayoutDuration": 0.015394,
+      "RecalcStyleDuration": 0.203858,
+      "LayoutCount": 111,
+      "RecalcStyleCount": 1218
+    },
+    "top": [
+      {
+        "function": "(idle)",
+        "url": "",
+        "line": -1,
+        "samples": 3991
+      },
+      {
+        "function": "(program)",
+        "url": "",
+        "line": -1,
+        "samples": 385
+      },
+      {
+        "function": "tick",
+        "url": "motion.js?v=57571c8a831d",
+        "line": 17,
+        "samples": 47
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 45
+      },
+      {
+        "function": "draw",
+        "url": "effects.js?v=f6eb56a46899",
+        "line": 15,
+        "samples": 36
+      },
+      {
+        "function": "tick",
+        "url": "live2d.js?v=a21d4ae96a6f",
+        "line": 170,
+        "samples": 35
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 28
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 26
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 22
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 19
+      },
+      {
+        "function": "evaluate",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 17
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 15
+      },
+      {
+        "function": "(garbage collector)",
+        "url": "",
+        "line": -1,
+        "samples": 11
+      },
+      {
+        "function": "bufferData",
+        "url": "",
+        "line": -1,
+        "samples": 11
+      },
+      {
+        "function": "ua",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 8
+      },
+      {
+        "function": "setupShaderProgram",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 7
+      },
+      {
+        "function": "querySelector",
+        "url": "",
+        "line": -1,
+        "samples": 7
+      },
+      {
+        "function": "",
+        "url": "motion.js?v=57571c8a831d",
+        "line": 34,
+        "samples": 7
+      }
+    ],
+    "info": {
+      "calls": {
+        "renders": 271,
+        "updates": 271,
+        "rects": 181,
+        "styles": 0
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "live2d": {
+        "width": 480,
+        "height": 620,
+        "maxFPS": 36,
+        "mask": "1024"
+      },
+      "ambient": 201,
+      "weather": 0
+    },
+    "errors": []
+  },
+  {
+    "case": "rain",
+    "seconds": 6.004545900001176,
+    "metrics": {
+      "TaskDuration": 1.333374,
+      "ScriptDuration": 0.843967,
+      "LayoutDuration": 0.02039,
+      "RecalcStyleDuration": 0.081686,
+      "LayoutCount": 51,
+      "RecalcStyleCount": 618
+    },
+    "top": [
+      {
+        "function": "(idle)",
+        "url": "",
+        "line": -1,
+        "samples": 2993
+      },
+      {
+        "function": "(program)",
+        "url": "",
+        "line": -1,
+        "samples": 279
+      },
+      {
+        "function": "rain",
+        "url": "weather-surfaces.js?v=025818d70fde",
+        "line": 104,
+        "samples": 62
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 53
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 31
+      },
+      {
+        "function": "draw",
+        "url": "effects.js?v=f6eb56a46899",
+        "line": 15,
+        "samples": 28
+      },
+      {
+        "function": "tick",
+        "url": "live2d.js?v=a21d4ae96a6f",
+        "line": 170,
+        "samples": 28
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 27
+      },
+      {
+        "function": "evaluate",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 16
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 15
+      },
+      {
+        "function": "setupShaderProgram",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 13
+      },
+      {
+        "function": "draw",
+        "url": "weather.js?v=65e9ec425eef",
+        "line": 73,
+        "samples": 11
+      },
+      {
+        "function": "stroke",
+        "url": "",
+        "line": -1,
+        "samples": 11
+      },
+      {
+        "function": "draw",
+        "url": "weather-surfaces.js?v=025818d70fde",
+        "line": 178,
+        "samples": 9
+      },
+      {
+        "function": "n.<computed>",
+        "url": "live2dcubismcore.min.js?v=25ae938c",
+        "line": 8,
+        "samples": 8
+      },
+      {
+        "function": "(garbage collector)",
+        "url": "",
+        "line": -1,
+        "samples": 7
+      },
+      {
+        "function": "wt",
+        "url": "cubism4.min.js?v=0.4.0",
+        "line": 0,
+        "samples": 7
+      },
+      {
+        "function": "uniformMatrix4fv",
+        "url": "",
+        "line": -1,
+        "samples": 7
+      }
+    ],
+    "info": {
+      "calls": {
+        "renders": 215,
+        "updates": 215,
+        "rects": 0,
+        "styles": 0
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "live2d": {
+        "width": 480,
+        "height": 620,
+        "maxFPS": 36,
+        "mask": "1024"
+      },
+      "ambient": 169,
+      "weather": 252
+    },
+    "errors": []
+  },
+  {
+    "case": "no-model",
+    "seconds": 6.006826300001194,
+    "metrics": {
+      "TaskDuration": 0.423181,
+      "ScriptDuration": 0.086862,
+      "LayoutDuration": 0.01917,
+      "RecalcStyleDuration": 0.069389,
+      "LayoutCount": 50,
+      "RecalcStyleCount": 402
+    },
+    "top": [
+      {
+        "function": "(idle)",
+        "url": "",
+        "line": -1,
+        "samples": 3578
+      },
+      {
+        "function": "(program)",
+        "url": "",
+        "line": -1,
+        "samples": 205
+      },
+      {
+        "function": "draw",
+        "url": "effects.js?v=f6eb56a46899",
+        "line": 15,
+        "samples": 21
+      },
+      {
+        "function": "querySelector",
+        "url": "",
+        "line": -1,
+        "samples": 9
+      },
+      {
+        "function": "requestAnimationFrame",
+        "url": "",
+        "line": -1,
+        "samples": 6
+      },
+      {
+        "function": "querySelector",
+        "url": "",
+        "line": -1,
+        "samples": 5
+      },
+      {
+        "function": "wake",
+        "url": "effects.js?v=f6eb56a46899",
+        "line": 14,
+        "samples": 3
+      },
+      {
+        "function": "clearRect",
+        "url": "",
+        "line": -1,
+        "samples": 3
+      },
+      {
+        "function": "stroke",
+        "url": "",
+        "line": -1,
+        "samples": 2
+      },
+      {
+        "function": "setTimeout",
+        "url": "",
+        "line": -1,
+        "samples": 2
+      },
+      {
+        "function": "bottom",
+        "url": "linux.js?v=46d8289a0755",
+        "line": 19,
+        "samples": 2
+      },
+      {
+        "function": "bottom",
+        "url": "linux.js?v=46d8289a0755",
+        "line": 19,
+        "samples": 2
+      },
+      {
+        "function": "fill",
+        "url": "",
+        "line": -1,
+        "samples": 1
+      },
+      {
+        "function": "beginPath",
+        "url": "",
+        "line": -1,
+        "samples": 1
+      },
+      {
+        "function": "wait",
+        "url": "linux.js?v=46d8289a0755",
+        "line": 18,
+        "samples": 1
+      },
+      {
+        "function": "arc",
+        "url": "",
+        "line": -1,
+        "samples": 1
+      }
+    ],
+    "info": {
+      "calls": {
+        "renders": 0,
+        "updates": 0,
+        "rects": 0,
+        "styles": 0
+      },
+      "renderer": null,
+      "live2d": null,
+      "ambient": 163,
+      "weather": 0
+    },
+    "errors": []
+  }
+]

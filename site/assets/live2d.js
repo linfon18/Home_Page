@@ -5,6 +5,7 @@
   const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n)),random=(a,b)=>a+Math.random()*(b-a),tau=Math.PI*2;
   let app=null,model=null,widget=null,animator=null,loading=false,hidden=false,awayAt=0;
   let selectionTimer=0,selecting=false,lastSelection='',customSize=1,sizeOpener=null,maximized=false;
+  let weatherEffect='clear',weatherActive=false;
   try{hidden=localStorage.getItem('linfon-live2d')==='hidden';}catch(_){}
   try{const saved=Number(localStorage.getItem('linfon-live2d-scale'));if(Number.isFinite(saved)&&saved>0)customSize=clamp(saved,.5,2);}catch(_){}
   try{maximized=localStorage.getItem('linfon-live2d-fit')==='max';}catch(_){}
@@ -33,7 +34,7 @@
     const baseWidth=compact.matches?clamp(innerWidth*.28,104,136):clamp(innerWidth*.17,180,240),baseHeight=compact.matches?clamp(innerWidth*.37,138,180):clamp(innerWidth*.22,235,310);
     const available=Math.min(Math.max(1,viewWidth-24)/baseWidth,Math.max(1,viewHeight-(maximized?88:210))/baseHeight);
     const fit=maximized?available:Math.min(customSize,available),targetWidth=Math.max(1,Math.floor(baseWidth*fit)),targetHeight=Math.max(1,Math.floor(baseHeight*fit));
-    if(widget){widget.style.width=targetWidth+'px';widget.style.height=targetHeight+'px';widget.dataset.scale=maximized?'max':String(Math.round(customSize*100));widget.classList.toggle('is-maximized',maximized);widget.style.bottom=(window.visualViewport?Math.max(0,innerHeight-visualViewport.height-visualViewport.offsetTop):0)+'px';}
+    if(widget){widget.style.width=targetWidth+'px';widget.style.height=targetHeight+'px';widget.dataset.scale=maximized?'max':String(Math.round(customSize*100));widget.classList.toggle('is-maximized',maximized);widget.style.bottom=(window.visualViewport?Math.max(0,innerHeight-visualViewport.height-visualViewport.offsetTop):0)+'px';widget._bounds=widget.getBoundingClientRect();}
     sizePanel.style.bottom=Math.max(8,Math.min(targetHeight+16,viewHeight-(sizePanel.offsetHeight||190)-12))+'px';
     if(!app||!model)return;const width=widget.clientWidth,height=widget.clientHeight;if(!width||!height)return;
     const resolution=renderResolution(width,height),renderer=app.renderer;
@@ -55,9 +56,10 @@
     const faces=['ParamCheek','Param63','Param3','Param4','Param5','Param6','Param7','Param8','ParamEyeLSmile','ParamEyeRSmile','ParamMouthForm','ParamMouthOpenY','ParamBrowLY','ParamBrowRY','ParamBrowLAngle','ParamBrowRAngle'];
     const offsets=['ParamAngleX','ParamAngleY','ParamAngleZ','ParamBodyAngleX','ParamBodyAngleY','ParamBodyAngleZ','ParamEyeBallX','ParamEyeBallY','Param9','Param10','Param11','Param12','Param59','Param60','Param61','Param62','Param55','Param57'];
     const blend={},lastByZone={},bags={},idleNames=['look','tilt','stretch','ear-idle','hum','yawn'];let idleBag=[],lastIdle='';
+    const blendedParameters=faces.concat(offsets,['wingSpeed','tailSpeed','wingAmp','tailAmp','closeL','closeR','lift']);
     const pools={head:['head','happy','shy'],face:['wink','blush','surprise'],ear:['ear','curious'],body:['body','bounce','curious','tail'],wing:['wing','proud'],tail:['tail','startled']};
     const duration={angry:6000,dizzy:3000,love:2400,pet:2600,wing:2300,tail:2100,stretch:3400,yawn:3800,look:3300,tilt:2600,'ear-idle':2200,hum:3300,inspect:6200};
-    const magnifier=widget.querySelector('.dragon-magnifier'),lensText=magnifier.querySelector('text');
+    const magnifier=widget.querySelector('.dragon-magnifier'),lensText=magnifier.querySelector('text'),umbrella=widget.querySelector('.dragon-umbrella');
     const handIndex=core.getDrawableIndex('ArtMesh102');let selectionTarget=null;
     let action=null,actionTimer=0,lastElapsed=model.elapsedTime,wing=0,tail=0,nextIdle=model.elapsedTime+1500,serial=0,force=false;
     let nextEar=model.elapsedTime+random(2200,4200),earStart=-10000,earSide=1,lastNotice=-15000,lastContext=-15000;
@@ -92,18 +94,31 @@
       selectionTarget={x:rect.left+rect.width/2,y:rect.top+rect.height/2};
       lensText.textContent=Array.from(text.replace(/\s+/g,' ')).slice(0,12).join('');magnifier.hidden=false;renderOnce();return true;
     }
-    function holdMagnifier(){
-      if(!action||action.kind!=='inspect'||handIndex<0)return;
+    function handPoint(){
+      if(handIndex<0)return null;
       // Follow the distal arm mesh rather than a fixed screen coordinate.
       const vertices=model.internalModel.getDrawableVertices(handIndex);let bottom=-Infinity;
       for(let n=1;n<vertices.length;n+=2)bottom=Math.max(bottom,vertices[n]);
       let x=0,y=0,count=0;
       for(let n=0;n<vertices.length;n+=2){if(vertices[n+1]>=bottom-model.internalModel.originalHeight*.018){x+=vertices[n];y+=vertices[n+1];count++;}}
-      if(!count)return;
-      const point=model.toGlobal(model.internalModel.localTransform.apply(new PIXI.Point(x/count,y/count)));
+      if(!count)return null;
+      return model.toGlobal(model.internalModel.localTransform.apply(new PIXI.Point(x/count,y/count)));
+    }
+    function holdMagnifier(){
+      if(!action||action.kind!=='inspect')return;const point=handPoint();if(!point)return;
       const scale=widget.clientHeight/310;
       magnifier.style.width=74*scale+'px';magnifier.style.height=110*scale+'px';
       magnifier.style.transform='translate('+(point.x-14*scale)+'px,'+(point.y-98*scale)+'px)';
+    }
+    function sheltering(){return weatherActive&&['rain','snow','hail'].includes(weatherEffect)&&(!action||!['inspect','angry'].includes(action.kind));}
+    function holdUmbrella(){
+      umbrella.hidden=!sheltering();if(umbrella.hidden){widget._weatherShelter=null;return;}
+      const point=handPoint();if(!point){umbrella.hidden=true;return;}
+      const scale=widget._bounds.height/310,w=280*scale,h=225*scale,x=point.x-158*scale,y=point.y-205*scale;
+      umbrella.style.width=w+'px';umbrella.style.height=h+'px';
+      umbrella.style.transform='translate('+x+'px,'+y+'px)';
+      widget._weatherShelter={x:widget._bounds.x+x+68*scale,y:widget._bounds.y+y,w:205*scale,h};
+      umbrella.dataset.weather=weatherEffect;
     }
     function burst(kind,x,y){
       if(reduced.matches||!['pet','love','happy','proud','surprise','dizzy'].includes(kind))return;
@@ -161,8 +176,9 @@
         lastIdle=idleBag.pop();begin(lastIdle,Math.random()<.5?-1:1,true);
       }
       const target=action?pose(action.kind,reduced.matches?.45:clamp((elapsed-action.start)/action.duration),action.side):{wingSpeed:.9,tailSpeed:1.3,wingAmp:.36,tailAmp:.65,closeL:0,closeR:0,lift:0};
+      if(sheltering()){target.Param55=-16;target.Param57=12;target.wingAmp=Math.min(target.wingAmp,.2);}
       const alpha=force||reduced.matches?1:1-Math.exp(-dt/85);
-      for(const id of faces.concat(offsets,['wingSpeed','tailSpeed','wingAmp','tailAmp','closeL','closeR','lift'])){const value=target[id]||0;blend[id]=(blend[id]||0)+(value-(blend[id]||0))*alpha;}
+      for(const id of blendedParameters){const value=target[id]||0;blend[id]=(blend[id]||0)+(value-(blend[id]||0))*alpha;}
       for(const id of faces)set(id,blend[id]);for(const id of offsets)add(id,blend[id]);
       if(!reduced.matches&&(!action||action.idle)){
         add('ParamBodyAngleZ',Math.sin(elapsed/1700)*.65);add('ParamAngleZ',Math.sin(elapsed/2100)*1.2);
@@ -171,10 +187,10 @@
       }
       set('ParamEyeLOpen',core.getParameterValueById('ParamEyeLOpen')*(1-blend.closeL));set('ParamEyeROpen',core.getParameterValueById('ParamEyeROpen')*(1-blend.closeR));
       wing+=dt/1000*blend.wingSpeed;tail+=dt/1000*blend.tailSpeed;set('Param41',Math.sin(wing)*blend.wingAmp);set('Param50',Math.sin(tail)*blend.tailAmp);model.position.y=widget.clientHeight-blend.lift;
-      holdMagnifier();
+      holdMagnifier();holdUmbrella();
     }
     model.internalModel.on('beforeModelUpdate',tick);
-    return {begin,context,notice,tap,inspect,clearGesture,isInspecting:()=>!!action&&action.kind==='inspect',move(hit,x,y){if(performance.now()-lastHitAt<55)return;lastHitAt=performance.now();strokeAt(hit,x,y);}};
+    return {begin,context,notice,tap,inspect,clearGesture,weather(){holdUmbrella();renderOnce();},isInspecting:()=>!!action&&action.kind==='inspect',move(hit,x,y){if(performance.now()-lastHitAt<55)return;lastHitAt=performance.now();strokeAt(hit,x,y);}};
   }
   async function load(){
     if(hidden||model||loading)return;loading=true;
@@ -186,11 +202,17 @@
       canvas.addEventListener('keydown',e=>{if(['+','=','-','0'].includes(e.key)){e.preventDefault();setSize(e.key==='0'?1:Math.round((customSize+(e.key==='-'?-.1:.1))*100)/100);return;}const kind=e.key==='Enter'?'head':e.key===' '?'wing':e.key==='ArrowDown'?'tail':e.key==='ArrowUp'?'surprise':e.key==='ArrowLeft'||e.key==='ArrowRight'?'curious':'';if(kind&&animator){e.preventDefault();animator.begin(kind,e.key==='ArrowLeft'?-1:1);}});
       const magnifier=document.createElement('span');magnifier.className='dragon-magnifier';magnifier.hidden=true;magnifier.setAttribute('aria-hidden','true');
       magnifier.innerHTML='<svg viewBox="0 0 74 110" fill="none"><defs><clipPath id="dragon-lens-clip"><circle cx="42" cy="34" r="20"/></clipPath><radialGradient id="dragon-lens-glow" cx=".3" cy=".25" r=".8"><stop stop-color="#f2fcff" stop-opacity=".95"/><stop offset="1" stop-color="#a2dded" stop-opacity=".75"/></radialGradient></defs><path d="M32 57 14 98" stroke="#182c42" stroke-width="11" stroke-linecap="round"/><path d="M31 58 16 92" stroke="#47677a" stroke-width="6" stroke-linecap="round"/><path d="m29 63 4-9" stroke="#e9be65" stroke-width="9"/><circle cx="42" cy="34" r="24" fill="#e6b75b" stroke="#243e55" stroke-width="2"/><circle cx="42" cy="34" r="20.5" fill="url(#dragon-lens-glow)" stroke="#628b9f" stroke-width="1.5"/><g clip-path="url(#dragon-lens-clip)"><text x="42" y="38" text-anchor="middle" fill="#233e51" font-family="sans-serif" font-size="12" font-weight="600"></text><path d="M27 28a16 16 0 0 1 12-10M52 43l3-4" stroke="white" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/></g></svg>';
+      const umbrella=document.createElement('span');umbrella.className='dragon-umbrella';umbrella.hidden=true;umbrella.setAttribute('aria-hidden','true');
+      umbrella.innerHTML='<svg viewBox="0 0 280 225" fill="none"><defs><linearGradient id="dragon-rain-fabric" x1="30" y1="10" x2="180" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="#9cbbc2"/><stop offset=".5" stop-color="#557d91"/><stop offset="1" stop-color="#36576f"/></linearGradient></defs><path d="M158 54v143q0 16-12 13" stroke="#21384a" stroke-width="6" stroke-linecap="round"/><path d="M157 55v140" stroke="#c7d5d8" stroke-width="2"/><g transform="translate(60 0)"><path class="umbrella-fabric" d="M8 80Q20 16 108 11q85 0 105 69-18-13-34 0-18-12-35 0-18-12-36 0-18-12-36 0-18-12-34 0-17-13-30 0Z" fill="url(#dragon-rain-fabric)" stroke="#29495d" stroke-width="1.7"/><path d="M108 11Q62 20 38 80m70-69q-20 22-36 69m36-69q15 20 36 69m-36-69q48 14 71 69" stroke="#d8ebec" stroke-opacity=".46" stroke-width="1"/><path d="M108 6v7M8 80l-1 4m31-4-1 4m35-4v4m36-4v4m36-4v4m35-4 1 4m33-4 1 4" stroke="#29495d" stroke-width="2" stroke-linecap="round"/><path class="umbrella-snow" d="M15 61q23-45 93-47 72 0 98 47" stroke="#f2f8fc" stroke-width="5" stroke-linecap="round"/></g></svg>';
       const close=document.createElement('button');close.className='live2d-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','隐藏 Live2D');close.addEventListener('click',()=>setHidden(true));
       const sizing=document.createElement('button');sizing.type='button';sizing.className='live2d-size-button';sizing.textContent='⤢';sizing.dataset.live2dSize='';sizing.setAttribute('aria-label','调整 Live2D 大小');sizing.setAttribute('aria-controls','live2d-size-controls');sizing.setAttribute('aria-expanded','false');widget.append(canvas,magnifier,sizing,close);document.body.append(widget);
+      widget.insertBefore(umbrella,magnifier);
       app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:renderResolution(240,310),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=compact.matches?30:36;
       model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>{if(reduced.matches||widget.hidden||document.hidden){state();return;}model.update(app.ticker.deltaMS);});animator=createAnimator();model.update(0);
-      widget._live2d=model;widget._app=app;widget.dataset.ready='true';state();layout();if(!reduced.matches)animator.begin('happy',1,false,'context');
+      widget._renderCache=window.cacheLive2DGeometry(model,app.renderer);
+      // Hit testing is handled by this module; Pixi's independent polling ticker is redundant.
+      if(app.renderer.plugins.interaction)app.renderer.plugins.interaction.useSystemTicker=false;
+      widget._live2d=model;widget._app=app;widget.dataset.ready='true';state();layout();animator.weather();if(!reduced.matches)animator.begin('happy',1,false,'context');
     }catch(error){if(app){app.destroy(true,{children:true,texture:true,baseTexture:true});app=null;}if(widget)widget.remove();widget=null;model=null;animator=null;toggle.dataset.unavailable='true';console.warn('Live2D unavailable:',error&&error.message||error);}
     finally{loading=false;}
   }
@@ -212,6 +234,7 @@
     return null;
   }
   toggle.addEventListener('click',()=>setHidden(!hidden));document.addEventListener('terminal-catastrophe',()=>{if(animator)animator.begin('angry');});
+  addEventListener('site-weather',e=>{weatherEffect=e.detail.effect;weatherActive=e.detail.active;if(animator){animator.weather();if(weatherActive&&['rain','snow','hail'].includes(weatherEffect))animator.context('curious');}});
   let lastPointerHit=0,nearby=false;
   addEventListener('pointermove',e=>{
     if(!model||!widget||widget.hidden||reduced.matches||e.pointerType==='touch'||animator.isInspecting())return;const rect=widget.getBoundingClientRect();model.internalModel.focusController.focus(clamp((e.clientX-rect.x-rect.width*.5)/(innerWidth*.4),-1,1),clamp((rect.y+rect.height*.35-e.clientY)/(innerHeight*.5),-1,1));
