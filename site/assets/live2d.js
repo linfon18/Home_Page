@@ -4,17 +4,34 @@
   const toggle=document.querySelector('[data-live2d-toggle]');if(!toggle)return;
   const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n)),random=(a,b)=>a+Math.random()*(b-a),tau=Math.PI*2;
   let app=null,model=null,widget=null,animator=null,loading=false,hidden=false,awayAt=0;
-  let selectionTimer=0,selecting=false,lastSelection='';
+  let selectionTimer=0,selecting=false,lastSelection='',customSize=1,sizeOpener=null;
   try{hidden=localStorage.getItem('linfon-live2d')==='hidden';}catch(_){}
+  try{const saved=Number(localStorage.getItem('linfon-live2d-scale'));if(Number.isFinite(saved)&&saved>0)customSize=clamp(saved,.5,2);}catch(_){}
+  const sizePanel=document.createElement('section');sizePanel.className='live2d-settings';sizePanel.id='live2d-size-controls';sizePanel.hidden=true;sizePanel.setAttribute('aria-label','Live2D 大小');
+  sizePanel.innerHTML='<header><span>Live2D 大小</span><button type="button" class="live2d-settings-close" aria-label="关闭大小设置">×</button></header><label for="live2d-scale">缩放 <output for="live2d-scale" aria-live="polite">100%</output></label><input id="live2d-scale" type="range" min="50" max="200" step="5" value="100"><div class="live2d-size-actions"><button type="button" data-size-step="-10" aria-label="缩小 Live2D">−</button><button type="button" data-size-reset>恢复默认</button><button type="button" data-size-step="10" aria-label="放大 Live2D">+</button></div>';
+  document.body.append(sizePanel);const sizeInput=sizePanel.querySelector('input'),sizeOutput=sizePanel.querySelector('output');
+  function closeSize(restore=false){sizePanel.hidden=true;document.querySelectorAll('[data-live2d-size]').forEach(b=>b.setAttribute('aria-expanded','false'));if(restore&&sizeOpener&&sizeOpener.isConnected)sizeOpener.focus();}
+  function openSize(button){sizeOpener=button;sizePanel.hidden=false;document.querySelectorAll('[data-live2d-size]').forEach(b=>b.setAttribute('aria-expanded','true'));layout();sizeInput.focus({preventScroll:true});}
+  function setSize(value,save=true){customSize=clamp(Number.isFinite(value)?value:1,.5,2);const percent=Math.round(customSize*100);sizeInput.value=String(percent);sizeInput.setAttribute('aria-valuetext',percent+'%');sizeOutput.textContent=percent+'%';sizePanel.querySelector('[data-size-step="-10"]').disabled=percent<=50;sizePanel.querySelector('[data-size-step="10"]').disabled=percent>=200;if(save)try{localStorage.setItem('linfon-live2d-scale',String(customSize));}catch(_){}layout();}
+  sizeInput.addEventListener('input',()=>setSize(Number(sizeInput.value)/100));
+  sizePanel.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;if(button.hasAttribute('data-size-step'))setSize(Math.round((customSize+Number(button.dataset.sizeStep)/100)*100)/100);if(button.hasAttribute('data-size-reset'))setSize(1);if(button.classList.contains('live2d-settings-close'))closeSize(true);});
+  document.addEventListener('click',e=>{const button=e.target.closest('[data-live2d-size]');if(button){if(sizePanel.hidden)openSize(button);else closeSize(true);return;}if(!e.target.closest('.live2d-settings'))closeSize();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sizePanel.hidden){e.preventDefault();closeSize(true);}});
   function script(src){return new Promise((resolve,reject)=>{const el=document.createElement('script');el.src=src;el.onload=resolve;el.onerror=reject;document.head.append(el);});}
   function state(){
     const visible=!hidden&&!document.hidden&&!document.querySelector('dialog[open]');
+    if(document.hidden||document.querySelector('dialog[open]'))closeSize();
     toggle.setAttribute('aria-pressed',String(!hidden));toggle.setAttribute('aria-label',hidden?'显示 Live2D':'隐藏 Live2D');
     if(!widget)return;widget.hidden=!visible;
     if(!visible){lastSelection='';if(animator)animator.clearGesture();}
     if(app){if(visible&&!reduced.matches)app.start();else{app.stop();if(visible)app.renderer.render(app.stage);}}
   }
   function layout(){
+    const viewWidth=Math.min(innerWidth,window.visualViewport?visualViewport.width:innerWidth),viewHeight=Math.min(innerHeight,window.visualViewport?visualViewport.height:innerHeight);
+    const baseWidth=compact.matches?clamp(innerWidth*.28,104,136):clamp(innerWidth*.17,180,240),baseHeight=compact.matches?clamp(innerWidth*.37,138,180):clamp(innerWidth*.22,235,310);
+    const fit=Math.min(customSize,(viewWidth-24)/baseWidth,Math.max(90,viewHeight-210)/baseHeight),targetWidth=Math.round(baseWidth*fit),targetHeight=Math.round(baseHeight*fit);
+    if(widget){widget.style.width=targetWidth+'px';widget.style.height=targetHeight+'px';widget.dataset.scale=String(Math.round(customSize*100));}
+    sizePanel.style.bottom=Math.max(12,Math.min(targetHeight+16,viewHeight-190))+'px';
     if(!app||!model)return;const width=widget.clientWidth,height=widget.clientHeight;if(!width||!height)return;
     app.renderer.resolution=Math.min(devicePixelRatio||1,compact.matches?1.25:1.5);app.ticker.maxFPS=compact.matches?24:30;
     app.renderer.resize(width,height);model.scale.set(1);
@@ -154,10 +171,11 @@
       await script('/assets/vendor/pixi.min.js?v=6.5.10');await script('/assets/vendor/live2dcubismcore.min.js?v=25ae938c');await script('/assets/vendor/cubism4.min.js?v=0.4.0');
       widget=document.createElement('aside');widget.className='live2d-widget';widget.hidden=true;widget.setAttribute('aria-label','蓝龙 Live2D');
       const canvas=document.createElement('canvas');canvas.setAttribute('aria-label','蓝龙：点击不同部位互动，滑动摸头；回车摸头，空格扇翅，左右键侧头，上键惊喜，下键摇尾');canvas.setAttribute('role','button');canvas.tabIndex=0;
-      canvas.addEventListener('keydown',e=>{const kind=e.key==='Enter'?'head':e.key===' '?'wing':e.key==='ArrowDown'?'tail':e.key==='ArrowUp'?'surprise':e.key==='ArrowLeft'||e.key==='ArrowRight'?'curious':'';if(kind&&animator){e.preventDefault();animator.begin(kind,e.key==='ArrowLeft'?-1:1);}});
+      canvas.addEventListener('keydown',e=>{if(['+','=','-','0'].includes(e.key)){e.preventDefault();setSize(e.key==='0'?1:Math.round((customSize+(e.key==='-'?-.1:.1))*100)/100);return;}const kind=e.key==='Enter'?'head':e.key===' '?'wing':e.key==='ArrowDown'?'tail':e.key==='ArrowUp'?'surprise':e.key==='ArrowLeft'||e.key==='ArrowRight'?'curious':'';if(kind&&animator){e.preventDefault();animator.begin(kind,e.key==='ArrowLeft'?-1:1);}});
       const magnifier=document.createElement('span');magnifier.className='dragon-magnifier';magnifier.hidden=true;magnifier.setAttribute('aria-hidden','true');
       magnifier.innerHTML='<svg viewBox="0 0 74 110" fill="none"><defs><clipPath id="dragon-lens-clip"><circle cx="42" cy="34" r="20"/></clipPath><radialGradient id="dragon-lens-glow" cx=".3" cy=".25" r=".8"><stop stop-color="#f2fcff" stop-opacity=".95"/><stop offset="1" stop-color="#a2dded" stop-opacity=".75"/></radialGradient></defs><path d="M32 57 14 98" stroke="#182c42" stroke-width="11" stroke-linecap="round"/><path d="M31 58 16 92" stroke="#47677a" stroke-width="6" stroke-linecap="round"/><path d="m29 63 4-9" stroke="#e9be65" stroke-width="9"/><circle cx="42" cy="34" r="24" fill="#e6b75b" stroke="#243e55" stroke-width="2"/><circle cx="42" cy="34" r="20.5" fill="url(#dragon-lens-glow)" stroke="#628b9f" stroke-width="1.5"/><g clip-path="url(#dragon-lens-clip)"><text x="42" y="38" text-anchor="middle" fill="#233e51" font-family="sans-serif" font-size="12" font-weight="600"></text><path d="M27 28a16 16 0 0 1 12-10M52 43l3-4" stroke="white" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/></g></svg>';
-      const close=document.createElement('button');close.className='live2d-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','隐藏 Live2D');close.addEventListener('click',()=>setHidden(true));widget.append(canvas,magnifier,close);document.body.append(widget);
+      const close=document.createElement('button');close.className='live2d-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','隐藏 Live2D');close.addEventListener('click',()=>setHidden(true));
+      const sizing=document.createElement('button');sizing.type='button';sizing.className='live2d-size-button';sizing.textContent='⤢';sizing.dataset.live2dSize='';sizing.setAttribute('aria-label','调整 Live2D 大小');sizing.setAttribute('aria-controls','live2d-size-controls');sizing.setAttribute('aria-expanded','false');widget.append(canvas,magnifier,sizing,close);document.body.append(widget);
       app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:Math.min(devicePixelRatio||1,compact.matches?1.25:1.5),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=compact.matches?24:30;
       model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>{if(reduced.matches||widget.hidden||document.hidden){state();return;}model.update(app.ticker.deltaMS);});animator=createAnimator();model.update(0);
       widget._live2d=model;widget._app=app;widget.dataset.ready='true';state();layout();if(!reduced.matches)animator.begin('happy',1,false,'context');
@@ -189,7 +207,7 @@
     if(performance.now()-lastPointerHit<60)return;lastPointerHit=performance.now();animator.move(x>=0&&y>=0&&x<=rect.width&&y<=rect.height?hit(x,y):null,e.clientX,e.clientY);
   },{passive:true});
   document.addEventListener('click',e=>{
-    if(!model||!widget||widget.hidden||!getSelection().isCollapsed||e.target.closest('.live2d-close,[data-live2d-toggle]'))return;const rect=widget.getBoundingClientRect(),x=e.clientX-rect.x,y=e.clientY-rect.y;if(x<0||y<0||x>rect.width||y>rect.height)return;
+    if(!model||!widget||widget.hidden||!getSelection().isCollapsed||e.target.closest('.live2d-close,.live2d-settings,[data-live2d-toggle],[data-live2d-size]'))return;const rect=widget.getBoundingClientRect(),x=e.clientX-rect.x,y=e.clientY-rect.y;if(x<0||y<0||x>rect.width||y>rect.height)return;
     const target=hit(x,y);if(target){e.preventDefault();e.stopImmediatePropagation();animator.tap(target,e);}
   },true);
   function readSelection(){
@@ -210,6 +228,7 @@
   document.addEventListener('pointercancel',()=>{selecting=false;readSelection();},{passive:true});
   addEventListener('blur',()=>{selecting=false;clearTimeout(selectionTimer);if(animator)animator.clearGesture();});
   addEventListener('resize',layout);compact.addEventListener('change',layout);reduced.addEventListener('change',state);
+  if(window.visualViewport)visualViewport.addEventListener('resize',layout);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)awayAt=performance.now();state();if(!document.hidden&&animator&&performance.now()-awayAt>20000)animator.context('happy');});
   addEventListener('pagehide',()=>{if(app)app.stop();});addEventListener('pageshow',state);new MutationObserver(state).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
   new MutationObserver(()=>{if(animator)animator.context('curious');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -221,6 +240,6 @@
     terminalObserver.observe(terminal,{attributes:true,attributeFilter:['data-scene']});
   }
   watchTerminal();addEventListener('site-page',()=>{watchTerminal();state();layout();});
-  document.addEventListener('site-page-before',()=>{if(terminalObserver)terminalObserver.disconnect();clearTimeout(selectionTimer);lastSelection='';selecting=false;if(animator)animator.clearGesture();});
-  state();if('requestIdleCallback' in window)requestIdleCallback(load,{timeout:1800});else setTimeout(load,700);
+  document.addEventListener('site-page-before',()=>{closeSize();if(terminalObserver)terminalObserver.disconnect();clearTimeout(selectionTimer);lastSelection='';selecting=false;if(animator)animator.clearGesture();});
+  setSize(customSize,false);state();if('requestIdleCallback' in window)requestIdleCallback(load,{timeout:1800});else setTimeout(load,700);
 })();
