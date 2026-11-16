@@ -47,6 +47,8 @@ SitePage.register('linux', scope => {
   async function output(rows){for(const row of rows){out(row);await wait(integer(55,180));}}
   function scene(name,description){screen.dataset.scene=name;sceneLabel=description;if(!interacting)label.textContent=description;path.textContent=cwd;}
   function source(){return ['#include <stdio.h>','','static int retry_limit = '+state.retries+';','static int timeout_ms = '+state.timeout+';','','static int probe(int attempt)','{','    return attempt < retry_limit ? 0 : 1;','}','','int main(void)','{','    printf("timeout=%dms\\n", timeout_ms);','    return probe(1);','}'];}
+  scope.on(document,'terminal-snapshot-request',()=>document.dispatchEvent(new CustomEvent('terminal-snapshot',{detail:{source:source().join('\n')+'\n'}})));
+  scope.on(document,'terminal-source-edit',e=>{if(typeof e.detail!=='string')return;const timeout=e.detail.match(/timeout_ms\s*=\s*(\d+)/),retries=e.detail.match(/retry_limit\s*=\s*(\d+)/);if(timeout)state.timeout=Number(timeout[1]);if(retries)state.retries=Number(retries[1]);});
   function syntax(text,parent){
     const regex=/("(?:\\.|[^"\\])*"|\b(?:static|int|return|const|void)\b|\b\d+\b|#include|<stdio\.h>)/g;let previous=0;
     for(const match of text.matchAll(regex)){parent.append(document.createTextNode(text.slice(previous,match.index)));const token=match[0];parent.append(element('span',token[0]==='"'||token[0]==='<'?'syn-string':/^\d/.test(token)?'vim-number':'syn-keyword',token));previous=match.index+token.length;}
@@ -233,9 +235,60 @@ SitePage.register('linux', scope => {
     await command("python3 -c 'from pathlib import Path; print(Path(\"logs/app.log\").stat().st_size)'",{typo:false});out(String(integer(2100,8500)));
     await command('du -sh build logs',{typo:false});await output(['24K\tbuild','12K\tlogs']);await wait(800);
   }
-  const extras=[packages,train,logs,network,process,inspect,shellEdit,versionControl,services,backup,permissions,textTools,containers,httpCheck,makeBuild,sessions,pythonCheck];let bag=[];
+  async function webRecovery(){
+    scene('nginx','nginx · diagnose / recover');const port=pick([8080,8081,8090]);
+    await command('sudo nginx -t');await sudo();await output(['nginx: [emerg] invalid port in "listen" directive in /etc/nginx/sites-enabled/netprobe:2','nginx: configuration file /etc/nginx/nginx.conf test failed']);
+    await command('sed -n \'1,6p\' /etc/nginx/sites-enabled/netprobe',{typo:false});await output(['server {','    listen '+port+'x;','    server_name localhost;','    root /var/www/html;','}']);
+    await command("sudo sed -i 's/"+port+"x;/"+port+";/' /etc/nginx/sites-enabled/netprobe");
+    await command('sudo nginx -t && sudo systemctl reload nginx');await output(['nginx: the configuration file /etc/nginx/nginx.conf syntax is ok','nginx: configuration file /etc/nginx/nginx.conf test is successful']);
+    await command('curl -sI http://127.0.0.1:'+port,{typo:false});await output(['HTTP/1.1 200 OK','Server: nginx','Content-Type: text/html','Connection: keep-alive']);await wait(900);
+  }
+  async function transfer(){
+    scene('rsync','rsync · verify / transfer');const run=cycle+'-'+integer(10,99),total=integer(12,38);
+    await command('rsync -avhn --delete ./ /tmp/netprobe-'+run+'/');await output(['sending incremental file list','created directory /tmp/netprobe-'+run,'./','Makefile','README.md','probe.c','scripts/backup.sh','','total size is '+total+'.42K  speedup is 8.21 (DRY RUN)']);
+    await wait(integer(450,1100));await command('rsync -avh --delete ./ /tmp/netprobe-'+run+'/');await output(['sending incremental file list','./','Makefile','README.md','probe.c','scripts/backup.sh','','sent '+(total+1)+'.04K bytes  received 122 bytes','total size is '+total+'.42K  speedup is 0.97']);
+    await command('diff -q probe.c /tmp/netprobe-'+run+'/probe.c',{typo:false});await command('echo $?',{typo:false});out('0','linux-success');await wait(800);
+  }
+  async function dnsTrouble(){
+    scene('dns','DNS · resolver / route');await command('getent hosts build.internal',{typo:false});await wait(650);
+    await command('echo $?',{typo:false});out('2','linux-error');await command('cat /etc/resolv.conf');out('nameserver 10.0.2.3');
+    await command('dig @10.0.2.3 build.internal +short',{typo:false});await wait(700);out('10.0.2.42','linux-success');
+    await command('resolvectl status ens3');await output(['Link 2 (ens3)','    Current Scopes: DNS','         DNS Servers: 10.0.2.3','          DNS Domain: ~internal']);
+    await command('resolvectl query build.internal');await output(['build.internal: 10.0.2.42','-- Information acquired via protocol DNS in '+integer(2,12)+'.'+integer(10,99)+'ms.']);await wait(900);
+  }
+  async function tracing(){
+    scene('strace','strace · inspect syscalls');await command('strace -e trace=openat,read,write,close ./build/probe');
+    await output(['openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3','close(3)                                = 0','openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3','read(3, "\\177ELF...", 832)                  = 832','close(3)                                = 0','write(1, "timeout='+state.timeout+'ms\\n", '+('timeout='+state.timeout+'ms\n').length+') = '+('timeout='+state.timeout+'ms\n').length,'timeout='+state.timeout+'ms','+++ exited with 0 +++']);
+    await command('ldd build/probe',{typo:false});await output(['linux-vdso.so.1 (0x00007fff2c5dd000)','libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fb72ca00000)','/lib64/ld-linux-x86-64.so.2 (0x00007fb72cc00000)']);await wait(850);
+  }
+  async function testBuild(){
+    scene('cmake','cmake · configure / test');const duration=(integer(1,9)/100).toFixed(2);
+    await command('cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Debug');await output(['-- The C compiler identification is GNU 14.2.0','-- Detecting C compiler ABI info - done','-- Configuring done','-- Generating done','-- Build files have been written to: /home/linfon18/scratch/netprobe/build/cmake']);
+    await command('cmake --build build/cmake -j2');const progress=out('[  0%] Building C object CMakeFiles/probe.dir/probe.c.o');await wait(integer(350,900));progress.textContent='[ 50%] Building C object CMakeFiles/probe.dir/probe.c.o';await wait(integer(300,700));out('[100%] Linking C executable probe');out('[100%] Built target probe','linux-success');
+    await command('ctest --test-dir build/cmake --output-on-failure');await output(['Test project /home/linfon18/scratch/netprobe/build/cmake','    Start 1: probe_smoke','1/1 Test #1: probe_smoke ...................... Passed    '+duration+' sec','','100% tests passed, 0 tests failed out of 1','Total Test time (real) = '+duration+' sec']);await wait(800);
+  }
+  async function permissionTrouble(){
+    scene('permissions','bash · permission denied');await command('./scripts/backup.sh',{typo:false});out('bash: ./scripts/backup.sh: Permission denied','linux-error');
+    await command('ls -l scripts/backup.sh');out('-rw-r--r-- 1 linfon18 linfon18 83 Nov 15 10:24 scripts/backup.sh');
+    await command('chmod u+x scripts/backup.sh && bash -n scripts/backup.sh');await command('./scripts/backup.sh',{typo:false});await wait(integer(300,650));
+    await command('tar -tzf netprobe.tar.gz');await output(['probe.c','README.md','Makefile']);await command('echo "backup complete"',{typo:false});out('backup complete','linux-success');await wait(850);
+  }
+  async function logAnalysis(){
+    scene('pipeline','bash · access log pipeline');const hits=integer(14,48),errors=integer(1,5);
+    await command("cut -d ' ' -f 4 logs/access.log | sort | uniq -c | sort -nr");await output([String(hits).padStart(7)+' 200',String(errors).padStart(7)+' 404','      1 502']);
+    await command("grep ' 502$' logs/access.log | tail -n 3");out('10.0.2.2 GET /api/health 502');await command('journalctl -u netprobe -n 2 --no-pager');await output(['debian netprobe[2310]: upstream connection refused at 127.0.0.1:9000','debian netprobe[2310]: retry scheduled in 1000ms']);
+    await command('sudo systemctl restart netprobe');await sudo();await wait(integer(600,1100));await command('curl -s http://127.0.0.1:9000/health',{typo:false});out('{"status":"ok","run":'+cycle+'}','linux-success');await wait(900);
+  }
+  async function gitCheckpoint(){
+    scene('git-commit','git · local checkpoint');const branch='tune/retry-'+cycle,limit=state.retries;
+    await command('git switch -c '+branch);out("Switched to a new branch '"+branch+"'");await command('git diff --stat',{typo:false});out(' probe.c | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)');
+    await command('git add probe.c && git diff --cached --check');await command('git commit -m "tune probe retry limit to '+limit+'"');const hash=(0xc94a000+cycle).toString(16);await output(['['+branch+' '+hash+'] tune probe retry limit to '+limit,' 1 file changed, 1 insertion(+), 1 deletion(-)']);
+    await command('git status --short',{typo:false});await command('git log -1 --oneline',{typo:false});out(hash+' (HEAD -> '+branch+') tune probe retry limit to '+limit);await wait(850);
+    await command('git switch main',{typo:false});out("Switched to branch 'main'");
+  }
+  const extras=[packages,train,logs,network,process,inspect,shellEdit,versionControl,services,backup,permissions,textTools,containers,httpCheck,makeBuild,sessions,pythonCheck,webRecovery,transfer,dnsTrouble,tracing,testBuild,permissionTrouble,logAnalysis,gitCheckpoint];let bag=[];
   function nextExtra(){if(!bag.length){bag=extras.slice();for(let n=bag.length-1;n>0;n--){const j=integer(0,n);[bag[n],bag[j]]=[bag[j],bag[n]];}}return bag.pop();}
-  function itinerary(){const tail=[nextExtra(),nextExtra(),nextExtra()];return Math.random()<.5?[vimEdit,compile,debug,...tail]:[tail[0],vimEdit,compile,debug,...tail.slice(1)];}
+  function itinerary(){const tail=[nextExtra(),nextExtra(),nextExtra(),nextExtra()];return Math.random()<.5?[vimEdit,compile,debug,...tail]:[tail[0],vimEdit,compile,debug,...tail.slice(1)];}
   async function run(){
     if(paused){while(paused&&!closing)await wait(60);}
     lines.replaceChildren();out('Debian GNU/Linux · x86_64','linux-muted');out('');await command('cd ~/scratch/netprobe',{typo:false});await command('mkdir -p build',{typo:false});

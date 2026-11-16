@@ -24,7 +24,7 @@
     toggle.setAttribute('aria-pressed',String(!hidden));toggle.setAttribute('aria-label',hidden?'显示 Live2D':'隐藏 Live2D');
     if(!widget)return;widget.hidden=!visible;
     if(!visible){lastSelection='';if(animator)animator.clearGesture();}
-    if(app){if(visible&&!reduced.matches)app.start();else{app.stop();if(visible)app.renderer.render(app.stage);}}
+    if(app){if(visible)layout();if(visible&&!reduced.matches)app.start();else{app.stop();if(visible)app.renderer.render(app.stage);}}
   }
   function layout(){
     const viewWidth=Math.min(innerWidth,window.visualViewport?visualViewport.width:innerWidth),viewHeight=Math.min(innerHeight,window.visualViewport?visualViewport.height:innerHeight);
@@ -33,9 +33,18 @@
     if(widget){widget.style.width=targetWidth+'px';widget.style.height=targetHeight+'px';widget.dataset.scale=String(Math.round(customSize*100));}
     sizePanel.style.bottom=Math.max(12,Math.min(targetHeight+16,viewHeight-190))+'px';
     if(!app||!model)return;const width=widget.clientWidth,height=widget.clientHeight;if(!width||!height)return;
-    app.renderer.resolution=Math.min(devicePixelRatio||1,compact.matches?1.25:1.5);app.ticker.maxFPS=compact.matches?24:30;
-    app.renderer.resize(width,height);model.scale.set(1);
+    const resolution=renderResolution(width,height),renderer=app.renderer;
+    app.ticker.maxFPS=compact.matches?30:36;
+    if(renderer.resolution!==resolution||renderer.screen.width!==width||renderer.screen.height!==height){renderer.resolution=resolution;renderer.resize(width,height);}
+    // Cubism's clipping atlas is independent of the visible canvas resolution.
+    const maskSize=height*resolution>500?1024:512,cubism=model.internalModel.renderer;
+    if(cubism&&cubism.getClippingMaskBufferSize&&cubism.getClippingMaskBufferSize()!==maskSize){cubism.setClippingMaskBufferSize(maskSize);cubism.startUp(renderer.gl);}
+    widget.dataset.resolution=resolution.toFixed(2);widget.dataset.maskSize=String(maskSize);model.scale.set(1);
     const scale=Math.min(width*.98/model.width,height*.98/model.height);model.scale.set(scale);model.anchor.set(.5,1);model.position.set(width/2,height);app.renderer.render(app.stage);
+  }
+  function renderResolution(width,height){
+    const zoom=window.visualViewport?visualViewport.scale||1:1,native=Math.max(1,(devicePixelRatio||1)*zoom),budget=compact.matches?3000000:4000000;
+    return Math.max(1,Math.min(native,4,Math.sqrt(budget/(width*height))));
   }
   function createAnimator(){
     const core=model.internalModel.coreModel;
@@ -176,7 +185,7 @@
       magnifier.innerHTML='<svg viewBox="0 0 74 110" fill="none"><defs><clipPath id="dragon-lens-clip"><circle cx="42" cy="34" r="20"/></clipPath><radialGradient id="dragon-lens-glow" cx=".3" cy=".25" r=".8"><stop stop-color="#f2fcff" stop-opacity=".95"/><stop offset="1" stop-color="#a2dded" stop-opacity=".75"/></radialGradient></defs><path d="M32 57 14 98" stroke="#182c42" stroke-width="11" stroke-linecap="round"/><path d="M31 58 16 92" stroke="#47677a" stroke-width="6" stroke-linecap="round"/><path d="m29 63 4-9" stroke="#e9be65" stroke-width="9"/><circle cx="42" cy="34" r="24" fill="#e6b75b" stroke="#243e55" stroke-width="2"/><circle cx="42" cy="34" r="20.5" fill="url(#dragon-lens-glow)" stroke="#628b9f" stroke-width="1.5"/><g clip-path="url(#dragon-lens-clip)"><text x="42" y="38" text-anchor="middle" fill="#233e51" font-family="sans-serif" font-size="12" font-weight="600"></text><path d="M27 28a16 16 0 0 1 12-10M52 43l3-4" stroke="white" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/></g></svg>';
       const close=document.createElement('button');close.className='live2d-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','隐藏 Live2D');close.addEventListener('click',()=>setHidden(true));
       const sizing=document.createElement('button');sizing.type='button';sizing.className='live2d-size-button';sizing.textContent='⤢';sizing.dataset.live2dSize='';sizing.setAttribute('aria-label','调整 Live2D 大小');sizing.setAttribute('aria-controls','live2d-size-controls');sizing.setAttribute('aria-expanded','false');widget.append(canvas,magnifier,sizing,close);document.body.append(widget);
-      app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:Math.min(devicePixelRatio||1,compact.matches?1.25:1.5),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=compact.matches?24:30;
+      app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:renderResolution(240,310),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=compact.matches?30:36;
       model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>{if(reduced.matches||widget.hidden||document.hidden){state();return;}model.update(app.ticker.deltaMS);});animator=createAnimator();model.update(0);
       widget._live2d=model;widget._app=app;widget.dataset.ready='true';state();layout();if(!reduced.matches)animator.begin('happy',1,false,'context');
     }catch(error){if(app){app.destroy(true,{children:true,texture:true,baseTexture:true});app=null;}if(widget)widget.remove();widget=null;model=null;animator=null;toggle.dataset.unavailable='true';console.warn('Live2D unavailable:',error&&error.message||error);}
@@ -229,6 +238,10 @@
   addEventListener('blur',()=>{selecting=false;clearTimeout(selectionTimer);if(animator)animator.clearGesture();});
   addEventListener('resize',layout);compact.addEventListener('change',layout);reduced.addEventListener('change',state);
   if(window.visualViewport)visualViewport.addEventListener('resize',layout);
+  // A monitor change or browser zoom can change DPR without changing CSS size.
+  let densityQuery=null;
+  function watchDensity(){if(densityQuery)densityQuery.removeEventListener('change',densityChanged);densityQuery=matchMedia('(resolution: '+(devicePixelRatio||1)+'dppx)');densityQuery.addEventListener('change',densityChanged);}
+  function densityChanged(){watchDensity();layout();}watchDensity();
   document.addEventListener('visibilitychange',()=>{if(document.hidden)awayAt=performance.now();state();if(!document.hidden&&animator&&performance.now()-awayAt>20000)animator.context('happy');});
   addEventListener('pagehide',()=>{if(app)app.stop();});addEventListener('pageshow',state);new MutationObserver(state).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
   new MutationObserver(()=>{if(animator)animator.context('curious');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
