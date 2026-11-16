@@ -11,9 +11,9 @@ SitePage.register('console', scope => {
   form.append(prompt,input,submit);screen.append(transcript,overlay);
   const home='/home/linfon18',project=home+'/scratch/netprobe';
   let cwd=project,active=false,hovered=false,timer=0,mode='shell',historyIndex=0,savedInput='',editorFile='',editorText='',vimInsert=false,autoRow=null,output=lines,stage=false,visualRow=null,savedNodes=null,dirty=false;
-  scope.cleanup(()=>{clearTimeout(timer);clearTimeout(pingTimer);active=false;});
-  const history=[],packages=new Set(['gcc','gdb','git','sl']);
-  let pingTimer=0,pingRun=null,touchOwned=false;
+  scope.cleanup(()=>{clearTimeout(timer);clearTimeout(pingTimer);programs.dispose();active=false;});
+  const history=[];
+  let pingTimer=0,pingRun=null,touchOwned=false,composing=false,lastDebuggerCommand='',stageSnapshot=null,programPrompt='';
   const files=new Map([
     [project+'/probe.c','#include <stdio.h>\n\nstatic int retry_limit = 3;\nstatic int timeout_ms = 1200;\n\nstatic int probe(int attempt)\n{\n    return attempt < retry_limit ? 0 : 1;\n}\n\nint main(void)\n{\n    printf("timeout=%dms\\n", timeout_ms);\n    return probe(1);\n}\n'],
     [project+'/README.md','# netprobe\nA small C program for gcc, gdb and vim practice.\n\nmake && ./build/probe\n\n这是一个本地模拟终端。输入 help 查看命令。\n'],
@@ -28,16 +28,26 @@ SitePage.register('console', scope => {
   const commands=['help','ls','ll','pwd','cd','whoami','hostname','id','uname','date','uptime','echo','cat','clear','history','tree','grep','head','tail','wc','file','gcc','make','gdb','vi','vim','apt','sudo','sl','top','htop','ping','ip','ss','git','df','free','du','ps','systemctl','journalctl','curl','dig','find','which','man','touch','mkdir','chmod','tar','sha256sum','python3','tmux','exit'];
   const shell=window.TerminalShell(files,{home,project,cwd:()=>cwd,chdir:p=>{cwd=p;},catastrophe:()=>document.dispatchEvent(new CustomEvent('terminal-catastrophe'))});
   shell.names.forEach(cmd=>{if(!commands.includes(cmd))commands.push(cmd);});
+  const programs=window.TerminalPrograms({screen,lines,write,
+    mode:(name,text)=>{mode=name;programPrompt=text||'';input.value='';input.readOnly=name!=='confirm';dirty=true;setPrompt();paintInput();},
+    finish:code=>{shell.setStatus(code);mode='shell';input.readOnly=false;dirty=true;setPrompt();paintInput();},
+    status:code=>shell.setStatus(code),command:value=>writeCommand(value)
+  });
+  function claimScreen(){
+    if(stage&&!stageSnapshot){stageSnapshot=Array.from(screen.querySelectorAll(':scope > .linux-train,:scope > .linux-process,:scope > [data-linux-editor]')).map(el=>[el,el.hidden]);stageSnapshot.forEach(([el])=>el.hidden=true);lines.hidden=false;}
+  }
   function shortPath(){return cwd===home?'~':cwd.startsWith(home+'/')?'~'+cwd.slice(home.length):cwd;}
-  function setPrompt(){prompt.textContent=mode==='ping'?'':mode==='gdb'?'(gdb) ':mode==='vim'?':':'linfon18@debian:'+shortPath()+'$ ';}
+  function setPrompt(){prompt.textContent=mode==='ping'?'':mode==='gdb'?'(gdb) ':mode==='confirm'?programPrompt:mode==='vim'?':':'linfon18@debian:'+shortPath()+'$ ';}
   function promptNode(){
     const lead=make('span','linux-prompt');
-    if(mode==='gdb')lead.append(make('span','linux-debug','(gdb) '));
+    if(mode==='confirm')lead.textContent=programPrompt;
+    else if(mode==='gdb')lead.append(make('span','linux-debug','(gdb) '));
     else lead.append(make('span','linux-user','linfon18@debian'),document.createTextNode(':'),make('span','linux-path',shortPath()),document.createTextNode('$ '));
     return lead;
   }
   function paintInput(){
-    if(!active||!dirty||mode==='vim'||mode==='ping')return;
+    if(!active||!dirty||mode==='vim'||mode==='ping'||programs.active&&mode!=='confirm')return;
+    claimScreen();
     if(!visualRow){
       if(autoRow&&autoRow.parentNode===lines){savedNodes=document.createDocumentFragment();while(autoRow.firstChild)savedNodes.append(autoRow.firstChild);visualRow=autoRow;}
       else{visualRow=make('div','linux-line terminal-live-line');output.append(visualRow);}
@@ -64,7 +74,7 @@ SitePage.register('console', scope => {
   function activate(focus=true){
     cancel();if(!active){
       active=true;panel.classList.add('is-interactive');document.dispatchEvent(new CustomEvent('terminal-interaction',{detail:true}));document.dispatchEvent(new CustomEvent('terminal-snapshot-request'));
-      stage=lines.hidden;output=stage?transcript:lines;autoRow=null;dirty=false;
+      stage=lines.hidden;output=lines;stageSnapshot=null;autoRow=null;dirty=false;
       if(!stage){
         autoRow=lines.querySelector('.linux-line:has(.linux-caret)');
         if(autoRow){const lead=autoRow.querySelector('.linux-prompt');if(mode!=='vim'){mode=lead&&lead.textContent.startsWith('(gdb)')?'gdb':'shell';input.value=autoRow.textContent.slice(lead?lead.textContent.length:0).trimEnd();}}
@@ -74,7 +84,7 @@ SitePage.register('console', scope => {
     if(focus&&mode!=='vim'){input.focus({preventScroll:true});input.setSelectionRange(input.value.length,input.value.length);}
   }
   function resume(){
-    if(!active)return;cancel();touchOwned=false;if(pingRun)stopPing(false);active=false;overlay.hidden=true;transcript.hidden=true;form.remove();
+    if(!active)return;cancel();programs.cancel();if(['train','top','job','confirm'].includes(mode)){mode='shell';input.readOnly=false;}if(stageSnapshot){stageSnapshot.forEach(([el,hidden])=>el.hidden=hidden);lines.hidden=stage;stageSnapshot=null;}touchOwned=false;if(pingRun)stopPing(false);active=false;overlay.hidden=true;transcript.hidden=true;form.remove();
     if(visualRow){if(visualRow===autoRow&&savedNodes){autoRow.replaceChildren(savedNodes);savedNodes=null;}else visualRow.remove();visualRow=null;}
     if(autoRow&&!autoRow.parentNode){lines.append(autoRow);lines.scrollTop=lines.scrollHeight;}autoRow=null;dirty=false;panel.classList.remove('is-interactive');if(panel.contains(document.activeElement))document.activeElement.blur();
     document.dispatchEvent(new CustomEvent('terminal-interaction',{detail:false}));
@@ -151,15 +161,22 @@ SitePage.register('console', scope => {
   scope.on(document,'terminal-snapshot',e=>{if(e.detail&&e.detail.source&&files.get(project+'/probe.c')===snapshotSource){files.set(project+'/probe.c',e.detail.source);snapshotSource=e.detail.source;}});
   function closeVim(save){if(save){files.set(editorFile,textarea.value);syncSource();}vim.hidden=true;overlay.hidden=true;mode='shell';attachForm();write(save?'"'+editorFile+'" '+textarea.value.split('\n').length+'L written':'Editor closed.','linux-muted');setPrompt();input.focus({preventScroll:true});}
   textarea.addEventListener('keydown',e=>{
+    e.stopPropagation();
     if(e.key==='Escape'){e.preventDefault();vimState(false);input.focus({preventScroll:true});}
     else if(!vimInsert&&e.key==='i'){e.preventDefault();vimState(true);}
     else if(!vimInsert&&e.key===':'){e.preventDefault();input.value='';input.focus({preventScroll:true});}
     else if(vimInsert&&e.key==='Tab'){e.preventDefault();textarea.setRangeText('    ',textarea.selectionStart,textarea.selectionEnd,'end');}
   });
   function execute(text){
-    if(!text.trim())return;writeCommand(text);
+    if(!text.trim()){
+      if(mode==='vim'){textarea.focus({preventScroll:true});return;}
+      writeCommand(text);historyIndex=history.length;savedInput='';
+      if(mode==='gdb'&&lastDebuggerCommand)gdb(lastDebuggerCommand);
+      setPrompt();return;
+    }
+    writeCommand(text);
     if(history[history.length-1]!==text)history.push(text);if(history.length>80)history.shift();historyIndex=history.length;
-    if(mode==='gdb'){gdb(text);setPrompt();return;}
+    if(mode==='gdb'){lastDebuggerCommand=text;gdb(text);setPrompt();return;}
     if(mode==='vim'){
       const cmd=text.replace(/^:/,'').trim();
       if(['wq','x','q!','q'].includes(cmd)){if(cmd==='q'&&textarea.value!==editorText)write('E37: No write since last change (add ! to override)','linux-error');else closeVim(cmd==='wq'||cmd==='x');}
@@ -168,9 +185,10 @@ SitePage.register('console', scope => {
       else vimStatus.textContent='E492: Not an editor command: '+cmd;
       return;
     }
+    if(programs.run(text)){setPrompt();return;}
     const result=shell.run(text);
     if(result){result.rows.forEach(row=>write(row.text,row.cls));syncSource();setPrompt();return;}
-    let args=tokens(text),cmd=args.shift();if(cmd==='sudo'){if(!args.length){write('usage: sudo command [arg ...]');return;}cmd=args.shift();}
+    let args=tokens(text),cmd=args.shift(),sudo=cmd==='sudo';if(sudo){cmd=args.shift();}
     const arg=args[0]||'';
     shell.setStatus(0);
     switch(cmd){
@@ -180,11 +198,8 @@ SitePage.register('console', scope => {
       case 'history':write(history.map((v,n)=>String(n+1).padStart(4)+'  '+v).join('\n'));break;
       case 'file':write(arg+': '+(arg.endsWith('.c')?'C source, ASCII text':arg.includes('probe')?'ELF 64-bit LSB pie executable, x86-64, with debug_info, not stripped':'UTF-8 text'));break;
       case './build/probe':case './probe':write('timeout='+((content('probe.c')||'').match(/timeout_ms\s*=\s*(\d+)/)||[])[1]+'ms','linux-success');break;
-      case 'gdb':debuggerState=null;mode='gdb';write('GNU gdb (Debian) 16.3\nReading symbols from ./build/probe...\nType "help" for commands.','linux-muted');break;
+      case 'gdb':debuggerState=null;lastDebuggerCommand='';mode='gdb';write('GNU gdb (Debian) 16.3\nReading symbols from ./build/probe...\nType "help" for commands.','linux-muted');break;
       case 'vi':case 'vim':openVim(arg);break;
-      case 'apt':case 'apt-get':if(arg==='update')write('Hit:1 http://deb.debian.org/debian trixie InRelease\nReading package lists... Done\nAll packages are up to date.');else if(arg==='install'){const names=args.slice(1).filter(v=>!v.startsWith('-'));names.forEach(n=>{write(packages.has(n)?n+' is already the newest version.':'Setting up '+n+' ...');packages.add(n);});}else if(arg==='list')write(Array.from(packages).map(p=>p+'/stable,now [installed]').join('\n'));else write('apt update | apt install <package> | apt list --installed');break;
-      case 'sl':write('      ====        ________\n _D _|  |_______/        \\__I_I_____===__\n  |(_)---  |   H\\________/ |   |        =|\n  /     |  |   H  |  |     |   |         |\n | ________|___H__/__|_____/[][]~\\_______|\n |/ |   |-----------I_____I [][] []  D   |\n  \\_/   \\O=====O=====O=====O_/      \\_/');break;
-      case 'top':case 'htop':write('Tasks: 112 total, 1 running, 111 sleeping\n%Cpu(s): 2.3 us, 0.7 sy, 97.0 id\nMiB Mem: 3900 total, 1642 free\n\n  PID USER      %CPU  COMMAND\n 1042 linfon18   0.0  systemd\n 1288 linfon18   0.0  bash\n 2124 linfon18   0.3  '+cmd);break;
       case 'free':write('               total     used      free   available\nMem:           3.8Gi    812Mi     1.6Gi       2.7Gi\nSwap:          1.0Gi       0B     1.0Gi');break;
       case 'df':case 'du':write(cmd==='df'?'Filesystem  Size Used Avail Use% Mounted on\n/dev/vda1    40G  15G   23G  40% /':'48K\t.');break;
       case 'ip':write('lo       UNKNOWN  127.0.0.1/8 ::1/128\nens3     UP       10.0.2.15/24');break;
@@ -195,20 +210,39 @@ SitePage.register('console', scope => {
       case 'python3':write('Python 3.13.5');break;
       case 'tmux':write('dev: 1 windows (created today) [80x24]');break;
       case 'exit':case 'logout':write('返回播放。','linux-muted');resume();break;
-      default:shell.setStatus(127);write('bash: '+cmd+': command not found\n输入 help 查看可用命令。','linux-error');
+      default:shell.setStatus(sudo?1:127);write((sudo?'sudo: ':'bash: ')+cmd+': command not found','linux-error');
     }
     if(mode!=='ping')setPrompt();
   }
-  form.addEventListener('submit',e=>{e.preventDefault();const value=input.value;if(!value.trim())return;releaseLine();input.value='';execute(value);dirty=true;paintInput();output.scrollTop=output.scrollHeight;});
+  function submitInput(){
+    if(!active||composing)return;keepTyping();
+    const value=input.value;claimScreen();releaseLine();input.value='';
+    if(programs.active)programs.submit(value);else if(mode==='ping')write('');else execute(value);
+    dirty=true;paintInput();output.scrollTop=output.scrollHeight;
+  }
+  form.addEventListener('submit',e=>{e.preventDefault();submitInput();});
   function keepTyping(){if(matchMedia('(pointer: coarse)').matches)touchOwned=true;cancel();}
   input.addEventListener('input',()=>{keepTyping();dirty=true;paintInput();});input.addEventListener('keyup',paintInput);
-  input.addEventListener('compositionstart',keepTyping);textarea.addEventListener('compositionstart',keepTyping);textarea.addEventListener('input',keepTyping);
+  input.addEventListener('compositionstart',()=>{composing=true;keepTyping();});input.addEventListener('compositionend',()=>{composing=false;});
+  textarea.addEventListener('compositionstart',keepTyping);textarea.addEventListener('input',keepTyping);
   input.addEventListener('keydown',e=>{
-    if(e.isComposing)return;
-    dirty=true;queueMicrotask(paintInput);
+    e.stopPropagation();
+    if(e.isComposing||e.keyCode===229||composing){if(e.key==='Enter')e.preventDefault();return;}
+    if(programs.active&&programs.key(e)){e.preventDefault();return;}
+    if(e.key==='Enter'){e.preventDefault();submitInput();return;}
+    keepTyping();claimScreen();dirty=true;queueMicrotask(paintInput);
     if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();releaseLine();output.replaceChildren();}
-    else if(e.ctrlKey&&e.key.toLowerCase()==='c'){e.preventDefault();if(pingRun)stopPing(true);else{releaseLine();writeCommand(input.value+'^C');input.value='';if(mode==='gdb')write('Program interrupted.');}}
-    else if(e.key==='ArrowUp'||e.key==='ArrowDown'){
+    else if(e.ctrlKey&&e.key.toLowerCase()==='c'){e.preventDefault();if(programs.interrupt()){input.value='';}else if(pingRun)stopPing(true);else{releaseLine();writeCommand(input.value+'^C');input.value='';shell.setStatus(130);if(mode==='gdb')write('Program interrupted.');}}
+    else if(programs.active&&mode!=='confirm'){e.preventDefault();}
+    else if(e.ctrlKey&&['a','e','u','k','w','d'].includes(e.key.toLowerCase())){
+      e.preventDefault();const pos=input.selectionStart||0,key=e.key.toLowerCase();
+      if(key==='a'||key==='e'){const at=key==='a'?0:input.value.length;input.setSelectionRange(at,at);}
+      else if(key==='u')input.setRangeText('',0,pos,'start');
+      else if(key==='k')input.setRangeText('',pos,input.value.length,'end');
+      else if(key==='w'){const start=input.value.slice(0,pos).replace(/\S+\s*$/,'').length;input.setRangeText('',start,pos,'start');}
+      else if(!input.value){write('exit');resume();}
+      else input.setRangeText('',pos,Math.min(pos+1,input.value.length),'start');
+    }else if(e.key==='ArrowUp'||e.key==='ArrowDown'){
       e.preventDefault();if(historyIndex===history.length)savedInput=input.value;historyIndex=Math.max(0,Math.min(history.length,historyIndex+(e.key==='ArrowUp'?-1:1)));input.value=historyIndex===history.length?savedInput:history[historyIndex];
     }else if(e.key==='Tab'){
       e.preventDefault();const value=input.value,last=value.split(/\s+/).pop(),start=value.length-last.length;

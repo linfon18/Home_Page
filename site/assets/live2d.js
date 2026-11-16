@@ -4,17 +4,19 @@
   const toggle=document.querySelector('[data-live2d-toggle]');if(!toggle)return;
   const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n)),random=(a,b)=>a+Math.random()*(b-a),tau=Math.PI*2;
   let app=null,model=null,widget=null,animator=null,loading=false,hidden=false,awayAt=0;
-  let selectionTimer=0,selecting=false,lastSelection='',customSize=1,sizeOpener=null;
+  let selectionTimer=0,selecting=false,lastSelection='',customSize=1,sizeOpener=null,maximized=false;
   try{hidden=localStorage.getItem('linfon-live2d')==='hidden';}catch(_){}
   try{const saved=Number(localStorage.getItem('linfon-live2d-scale'));if(Number.isFinite(saved)&&saved>0)customSize=clamp(saved,.5,2);}catch(_){}
+  try{maximized=localStorage.getItem('linfon-live2d-fit')==='max';}catch(_){}
   const sizePanel=document.createElement('section');sizePanel.className='live2d-settings';sizePanel.id='live2d-size-controls';sizePanel.hidden=true;sizePanel.setAttribute('aria-label','Live2D 大小');
   sizePanel.innerHTML='<header><span>Live2D 大小</span><button type="button" class="live2d-settings-close" aria-label="关闭大小设置">×</button></header><label for="live2d-scale">缩放 <output for="live2d-scale" aria-live="polite">100%</output></label><input id="live2d-scale" type="range" min="50" max="200" step="5" value="100"><div class="live2d-size-actions"><button type="button" data-size-step="-10" aria-label="缩小 Live2D">−</button><button type="button" data-size-reset>恢复默认</button><button type="button" data-size-step="10" aria-label="放大 Live2D">+</button></div>';
+  const maxButton=document.createElement('button');maxButton.type='button';maxButton.dataset.sizeMax='';maxButton.textContent='MAX';maxButton.setAttribute('aria-label','Live2D 适应屏幕');sizePanel.querySelector('.live2d-size-actions').append(maxButton);
   document.body.append(sizePanel);const sizeInput=sizePanel.querySelector('input'),sizeOutput=sizePanel.querySelector('output');
   function closeSize(restore=false){sizePanel.hidden=true;document.querySelectorAll('[data-live2d-size]').forEach(b=>b.setAttribute('aria-expanded','false'));if(restore&&sizeOpener&&sizeOpener.isConnected)sizeOpener.focus();}
   function openSize(button){sizeOpener=button;sizePanel.hidden=false;document.querySelectorAll('[data-live2d-size]').forEach(b=>b.setAttribute('aria-expanded','true'));layout();sizeInput.focus({preventScroll:true});}
-  function setSize(value,save=true){customSize=clamp(Number.isFinite(value)?value:1,.5,2);const percent=Math.round(customSize*100);sizeInput.value=String(percent);sizeInput.setAttribute('aria-valuetext',percent+'%');sizeOutput.textContent=percent+'%';sizePanel.querySelector('[data-size-step="-10"]').disabled=percent<=50;sizePanel.querySelector('[data-size-step="10"]').disabled=percent>=200;if(save)try{localStorage.setItem('linfon-live2d-scale',String(customSize));}catch(_){}layout();}
+  function setSize(value,save=true){if(save)maximized=false;customSize=clamp(Number.isFinite(value)?value:1,.5,2);const percent=Math.round(customSize*100);sizeInput.value=String(percent);sizeInput.setAttribute('aria-valuetext',percent+'%');sizeOutput.textContent=maximized?'MAX':percent+'%';maxButton.setAttribute('aria-pressed',String(maximized));sizePanel.querySelector('[data-size-step="-10"]').disabled=!maximized&&percent<=50;sizePanel.querySelector('[data-size-step="10"]').disabled=!maximized&&percent>=200;if(save)try{localStorage.setItem('linfon-live2d-scale',String(customSize));localStorage.removeItem('linfon-live2d-fit');}catch(_){}layout();}
   sizeInput.addEventListener('input',()=>setSize(Number(sizeInput.value)/100));
-  sizePanel.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;if(button.hasAttribute('data-size-step'))setSize(Math.round((customSize+Number(button.dataset.sizeStep)/100)*100)/100);if(button.hasAttribute('data-size-reset'))setSize(1);if(button.classList.contains('live2d-settings-close'))closeSize(true);});
+  sizePanel.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;if(button.hasAttribute('data-size-step'))setSize(Math.round((customSize+Number(button.dataset.sizeStep)/100)*100)/100);if(button.hasAttribute('data-size-reset'))setSize(1);if(button.hasAttribute('data-size-max')){maximized=!maximized;try{if(maximized)localStorage.setItem('linfon-live2d-fit','max');else localStorage.removeItem('linfon-live2d-fit');}catch(_){}setSize(customSize,false);}if(button.classList.contains('live2d-settings-close'))closeSize(true);});
   document.addEventListener('click',e=>{const button=e.target.closest('[data-live2d-size]');if(button){if(sizePanel.hidden)openSize(button);else closeSize(true);return;}if(!e.target.closest('.live2d-settings'))closeSize();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sizePanel.hidden){e.preventDefault();closeSize(true);}});
   function script(src){return new Promise((resolve,reject)=>{const el=document.createElement('script');el.src=src;el.onload=resolve;el.onerror=reject;document.head.append(el);});}
@@ -29,9 +31,10 @@
   function layout(){
     const viewWidth=Math.min(innerWidth,window.visualViewport?visualViewport.width:innerWidth),viewHeight=Math.min(innerHeight,window.visualViewport?visualViewport.height:innerHeight);
     const baseWidth=compact.matches?clamp(innerWidth*.28,104,136):clamp(innerWidth*.17,180,240),baseHeight=compact.matches?clamp(innerWidth*.37,138,180):clamp(innerWidth*.22,235,310);
-    const fit=Math.min(customSize,(viewWidth-24)/baseWidth,Math.max(90,viewHeight-210)/baseHeight),targetWidth=Math.round(baseWidth*fit),targetHeight=Math.round(baseHeight*fit);
-    if(widget){widget.style.width=targetWidth+'px';widget.style.height=targetHeight+'px';widget.dataset.scale=String(Math.round(customSize*100));}
-    sizePanel.style.bottom=Math.max(12,Math.min(targetHeight+16,viewHeight-190))+'px';
+    const available=Math.min(Math.max(1,viewWidth-24)/baseWidth,Math.max(1,viewHeight-(maximized?88:210))/baseHeight);
+    const fit=maximized?available:Math.min(customSize,available),targetWidth=Math.max(1,Math.floor(baseWidth*fit)),targetHeight=Math.max(1,Math.floor(baseHeight*fit));
+    if(widget){widget.style.width=targetWidth+'px';widget.style.height=targetHeight+'px';widget.dataset.scale=maximized?'max':String(Math.round(customSize*100));widget.classList.toggle('is-maximized',maximized);widget.style.bottom=(window.visualViewport?Math.max(0,innerHeight-visualViewport.height-visualViewport.offsetTop):0)+'px';}
+    sizePanel.style.bottom=Math.max(8,Math.min(targetHeight+16,viewHeight-(sizePanel.offsetHeight||190)-12))+'px';
     if(!app||!model)return;const width=widget.clientWidth,height=widget.clientHeight;if(!width||!height)return;
     const resolution=renderResolution(width,height),renderer=app.renderer;
     app.ticker.maxFPS=compact.matches?30:36;

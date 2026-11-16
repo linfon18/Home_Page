@@ -84,3 +84,5 @@ body[data-page=home] .site-footer{padding-bottom:24px}
 .linux-scrollback>.terminal-input-row{border:0;padding:0;min-height:1.85em}.terminal-input-row.is-stage{position:absolute;bottom:0;left:0;right:0;z-index:4;background:#10151b;padding:3px 12px}.terminal-stage-output{position:absolute;bottom:33px;left:0;right:0;max-height:65%;z-index:4;overflow:auto;background:#10151b;padding:10px 14px;scrollbar-width:thin;border-top:1px solid var(--line)}.terminal-prompt{font-size:inherit}
 @media(max-width:680px){.terminal-interactive{padding-inline:15px}.terminal-input-row{flex-wrap:wrap;gap:1px}.terminal-prompt{width:100%}.terminal-input{flex:1;width:auto}}
 .terminal-input-row.is-capture{position:absolute;left:0;bottom:0;width:1px;height:1px;min-height:0;padding:0;border:0;overflow:hidden;opacity:0;pointer-events:none}.terminal-input-row.is-capture .terminal-input{width:1px;min-width:1px;font-size:16px}.terminal-live-line{font:inherit}
+
+.terminal-program{z-index:5;background:#10151b;color:#d3dedc;pointer-events:none}.terminal-program.linux-train{padding-top:55px}

@@ -66,7 +66,40 @@ window.TerminalShell=function(files,options){
     for(let offset=0;offset<length;offset+=64){for(let i=0;i<16;i++)w[i]=view.getUint32(offset+i*4);for(let i=16;i<64;i++){const x=w[i-15],y=w[i-2];w[i]=(w[i-16]+(rotr(x,7)^rotr(x,18)^(x>>>3))+w[i-7]+(rotr(y,17)^rotr(y,19)^(y>>>10)))>>>0;}let [a,b,c,d,e,f,g,z]=h;for(let i=0;i<64;i++){const t1=(z+(rotr(e,6)^rotr(e,11)^rotr(e,25))+((e&f)^(~e&g))+roots[i]+w[i])>>>0,t2=((rotr(a,2)^rotr(a,13)^rotr(a,22))+((a&b)^(a&c)^(b&c)))>>>0;z=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}[a,b,c,d,e,f,g,z].forEach((v,i)=>h[i]=(h[i]+v)>>>0);}
     return h.map(v=>v.toString(16).padStart(8,'0')).join('');
   }
-  function compile(args){const src=args.find(a=>a.endsWith('.c'))||'probe.c',body=read(path(src)),dest=path(args.includes('-o')?args[args.indexOf('-o')+1]||'a.out':'a.out');if(!/\bmain\s*\(/.test(body))fail("ld: undefined reference to `main'");save(dest,'ELF local executable\n');permissions.set(dest,'rwxr-xr-x');binaries.set(dest,{timeout:(body.match(/timeout_ms\s*=\s*(\d+)/)||[])[1]||'1200',retries:(body.match(/retry_limit\s*=\s*(\d+)/)||[])[1]||'3'});return '';}
+  function compile(args){
+    if(args.includes('-')&&!args.includes('-x')&&!args.includes('-E'))fail('gcc: error: -E or -x required when input is from standard input');
+    const src=args.find(a=>a.endsWith('.c'));
+    if(!src)fail('gcc: fatal error: no input files\ncompilation terminated.');
+    if(!files.has(path(src)))fail('cc1: fatal error: '+src+': No such file or directory\ncompilation terminated.');
+    if(args.includes('-o')&&(!args[args.indexOf('-o')+1]||args[args.indexOf('-o')+1].startsWith('-')))fail("gcc: error: missing filename after '-o'");
+    const body=read(path(src)),object=args.includes('-c'),assembly=args.includes('-S'),syntax=args.includes('-fsyntax-only');
+    const option=args.find(a=>a.startsWith('-')&&!/^-(?:Wall|Wextra|Werror|g[0-3]?|O[0-3sg]|o|c|S|E|fsyntax-only|std=.+|D.+|I.+|l.+|pthread|pedantic)$/.test(a));
+    if(option)fail('gcc: error: unrecognized command-line option '+"'"+option+"'");
+    const clean=body.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,'');
+    if((clean.match(/\{/g)||[]).length!==(clean.match(/\}/g)||[]).length)fail(src+': error: expected declaration or statement at end of input');
+    if(syntax)return '';
+    if(!object&&!assembly&&!/\bmain\s*\(/.test(body))fail("/usr/bin/ld: undefined reference to `main'\ncollect2: error: ld returned 1 exit status");
+    const dest=path(args.includes('-o')?args[args.indexOf('-o')+1]:object?src.replace(/\.c$/,'.o'):assembly?src.replace(/\.c$/,'.s'):'a.out');
+    save(dest,assembly?'.text\n.globl main\nmain:\n  ret\n':object?'ELF local relocatable\n':'ELF local executable\n');
+    if(!object&&!assembly){permissions.set(dest,'rwxr-xr-x');binaries.set(dest,{timeout:(body.match(/timeout_ms\s*=\s*(\d+)/)||[])[1]||'1200',retries:(body.match(/retry_limit\s*=\s*(\d+)/)||[])[1]||'3'});}return '';
+  }
+  const sudoUsage='usage: sudo -h | -K | -k | -V\nusage: sudo -v [-knS] [-u user]\nusage: sudo [-bEHknPS] [-u user] command [arg ...]\n';
+  function sudoArgs(args){
+    const a=args.slice();let user='root';
+    while(a.length&&a[0].startsWith('-')){const option=a.shift();
+      if(option==='--')break;
+      if(option==='-u'||option==='--user'){user=a.shift();if(!user)fail("sudo: option requires an argument -- 'u'\n"+sudoUsage);continue;}
+      if(option==='-h'||option==='--help')return {result:status(0,'sudo - execute a command as another user\n\n'+sudoUsage+'\nOptions:\n  -h, --help  display help\n  -u, --user  run as user\n  -l, --list  list privileges\n')};
+      if(option==='-V'||option==='--version')return {result:status(0,'Sudo version 1.9.16p2\n')};
+      if(option==='-l'||option==='--list')return {result:status(0,'User linfon18 may run the following commands on debian:\n    (ALL : ALL) ALL\n')};
+      if(['-k','-K','-v','-n','-S','-H','-E'].includes(option))continue;
+      fail("sudo: invalid option -- '"+(option.slice(1,2)||option)+"'\n"+sudoUsage);
+    }
+    if(!a.length)return {result:status(args.length?0:1,args.length?'':sudoUsage)};
+    if(!['root','linfon18'].includes(user))fail('sudo: unknown user '+user);
+    if(['help','cd','export','unset','history','exit'].includes(a[0]))fail('sudo: '+a[0]+': command not found',1);
+    return {args:a,user};
+  }
   function builtin(cmd,a,stdin){
     const arg=a[0]||'',plain=a.filter(v=>!v.startsWith('-'));let result='';
     switch(cmd){
@@ -141,10 +174,10 @@ window.TerminalShell=function(files,options){
     let list;try{if(text.length>8192)fail('bash: command too long',2);list=parse(text);}catch(e){last=e.status||2;return {rows:[{text:e.message,cls:'linux-error'}],status:last};}
     if(!list.length)return {rows:[],status:last};
     // Let the terminal own foreground editors, ping timers and its visual easter egg.
-    if(list.length===1&&list[0].stages.length===1&&!list[0].stages[0].redirects.length){const args=words(list[0].stages[0].words);if(args[0]==='sudo')args.shift();if(!args[0])return null;if(!names.includes(args[0])&&!binaries.has(path(args[0]))&&!/^[A-Za-z_]\w*=/.test(args[0]))return null;}
+    if(list.length===1&&list[0].stages.length===1&&!list[0].stages[0].redirects.length){let args=words(list[0].stages[0].words);if(args[0]==='sudo'){try{const parsed=sudoArgs(args.slice(1));if(parsed.result){last=parsed.result.code;return {rows:parsed.result.text?[{text:parsed.result.text.replace(/\n$/,''),cls:''}]:[],status:last};}args=parsed.args;}catch(e){last=e.status||1;return {rows:[{text:e.message,cls:'linux-error'}],status:last};}}if(!args[0])return null;if(!names.includes(args[0])&&!binaries.has(path(args[0]))&&!/^[A-Za-z_]\w*=/.test(args[0]))return null;}
     const output=[];
     for(const step of list){if(step.gate==='&&'&&last!==0||step.gate==='||'&&last===0)continue;let data='';
-      for(let n=0;n<step.stages.length;n++){const s=step.stages[n];try{const raw=s.words.map(expand),rawArgs=raw[0]==='sudo'?raw.slice(1):raw;if(rawArgs[0]==='rm'&&rawArgs.some(v=>v==='/'||v==='/*')){const flags=rawArgs.filter(v=>v.startsWith('-')).join('');if(flags.includes('r')&&flags.includes('f')&&options.catastrophe)options.catastrophe();fail("rm: cannot remove '/': Permission denied");}let a=words(s.words),cmd=a.shift();if(cmd==='sudo')cmd=a.shift();if(!a.length&&/^[A-Za-z_]\w*=/.test(cmd)){const i=cmd.indexOf('=');env[cmd.slice(0,i)]=cmd.slice(i+1);last=0;data='';continue;}const input=s.redirects.filter(r=>r.op==='<').pop();if(input)data=read(path(expand(input.dest)));const value=builtin(cmd,a,data);if(value===null)fail('bash: '+cmd+': command not found',127);const result=typeof value==='string'?status(0,value):value;last=result.code;data=result.text;for(const r of s.redirects.filter(r=>r.op!=='<')){const dest=expand(r.dest);if(!dest)fail('bash: ambiguous redirect');save(path(dest),data,r.op==='>>');}if(s.redirects.some(r=>r.op!=='<'))data='';}catch(e){last=e.status||1;data='';output.push({text:e.message,cls:'linux-error'});}}
+      for(let n=0;n<step.stages.length;n++){const s=step.stages[n];try{const raw=s.words.map(expand),rawArgs=raw[0]==='sudo'?raw.slice(1):raw;if(rawArgs[0]==='rm'&&rawArgs.some(v=>v==='/'||v==='/*')){const flags=rawArgs.filter(v=>v.startsWith('-')).join('');if(flags.includes('r')&&flags.includes('f')&&options.catastrophe)options.catastrophe();fail("rm: cannot remove '/': Permission denied");}let a=words(s.words),cmd=a.shift(),sudo=cmd==='sudo',sudoUser='root';if(sudo){const parsed=sudoArgs(a);if(parsed.result){last=parsed.result.code;data=parsed.result.text;continue;}a=parsed.args;sudoUser=parsed.user;cmd=a.shift();}if(!a.length&&/^[A-Za-z_]\w*=/.test(cmd)){const i=cmd.indexOf('=');env[cmd.slice(0,i)]=cmd.slice(i+1);last=0;data='';continue;}const input=s.redirects.filter(r=>r.op==='<').pop();if(input)data=read(path(expand(input.dest)));const value=sudo&&cmd==='whoami'?sudoUser+'\n':sudo&&cmd==='id'?'uid=0(root) gid=0(root) groups=0(root)\n':builtin(cmd,a,data);if(value===null)fail((sudo?'sudo: ':'bash: ')+cmd+': command not found',sudo?1:127);const result=typeof value==='string'?status(0,value):value;last=result.code;data=result.text;for(const r of s.redirects.filter(r=>r.op!=='<')){const dest=expand(r.dest);if(!dest)fail('bash: ambiguous redirect');save(path(dest),data,r.op==='>>');}if(s.redirects.some(r=>r.op!=='<'))data='';}catch(e){last=e.status||1;data='';output.push({text:e.message,cls:'linux-error'});}}
       if(data)output.push({text:data.replace(/\n$/,''),cls:''});
     }
     return {rows:output,status:last};
