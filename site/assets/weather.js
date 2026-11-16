@@ -8,7 +8,7 @@
   const canvas=document.createElement('canvas');canvas.className='weather-field';canvas.setAttribute('aria-hidden','true');canvas.hidden=true;document.body.prepend(canvas);
   const ctx=canvas.getContext('2d'),key='linfon-weather-v1',cacheKey=key+'-cache',period=20*60*1000,maxAge=2*60*60*1000;
   const surfaces=window.createWeatherSurfaces(canvas,compact);
-  let mode='auto',city='',weather=null,error='',pending=false,controller=null,requestId=0,refreshTimer=0,frame=0,last=0,time=0,width=0,height=0,particles=[],effect='clear',dark=false,disposed=false;
+  let mode='auto',city='',weather=null,error='',pending=false,controller=null,requestId=0,refreshTimer=0,frame=0,last=0,time=0,width=0,height=0,particles=[],effect='clear',dark=false,disposed=false,viewport=null;
   const rand=(a,b)=>a+Math.random()*(b-a);
   try{const pref=JSON.parse(localStorage.getItem(key));if(pref&&Object.prototype.hasOwnProperty.call(modes,pref.mode)){mode=pref.mode;city=String(pref.city||'').slice(0,80);}}catch(_){}
   cityInput.value=city;
@@ -63,26 +63,26 @@
   root.addEventListener('click',e=>{const button=e.target.closest('[data-weather-mode]');if(button)choose(button.dataset.weatherMode);if(e.target.closest('[data-weather-refresh]'))update(true);});
   form.addEventListener('submit',e=>{e.preventDefault();const value=cityInput.value.trim().slice(0,80);if(value!==city){cancelRequest();city=value;cityInput.value=city;weather=null;error='';}mode='auto';save();changeEffect();update(true);});
   function seed(){particles=Array.from({length:effect==='fog'?8:compact.matches?(effect==='snow'?75:80):(effect==='snow'?160:150)},()=>({x:rand(-60,width+60),y:rand(-height,height),size:rand(.7,3.2),speed:effect==='hail'?rand(430,760):rand(.6,1.4),phase:rand(0,Math.PI*2),vx:rand(-20,20),bounce:0}));}
-  function resize(){width=innerWidth;height=innerHeight;const ratio=Math.min(devicePixelRatio||1,1.5);canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);if(ctx)ctx.setTransform(ratio,0,0,ratio,0,0);seed();state();}
+  function resize(){width=innerWidth;height=innerHeight;seed();surfaces.invalidate();state();}
   function stop(){cancelAnimationFrame(frame);frame=0;last=0;}
   function wake(){if(!frame&&ctx&&!canvas.hidden&&!disposed)frame=requestAnimationFrame(draw);}
   function state(){
     dark=document.documentElement.dataset.theme==='dark';const hidden=disposed||mode==='off'||effect==='clear'||reduced.matches||document.hidden||!!document.querySelector('dialog[open]');canvas.hidden=hidden;
     surfaces.set(effect,hidden);
-    if(hidden){stop();if(ctx)ctx.clearRect(0,0,width,height);}else wake();
+    if(hidden){stop();if(ctx)ctx.clearRect(0,0,width,height);}else{if(viewport)viewport.sync();wake();}
   }
   function draw(now){
     frame=0;if(canvas.hidden||disposed)return;const interval=compact.matches?42:32;if(last&&now-last<interval){wake();return;}
     const dt=last?Math.min((now-last)/1000,.06):0;last=now;time+=dt;ctx.clearRect(0,0,width,height);
     const color=dark?'186,211,238':'42,79,119';surfaces.measure();
-    ctx.save();if(effect==='rain'||effect==='snow')surfaces.clip(ctx);
+    ctx.save();if(effect==='rain'||effect==='snow'||effect==='hail')surfaces.clip(ctx);
     if(effect==='fog'){
       for(const p of particles){p.x+=dt*p.speed*9;if(p.x>width*1.6)p.x=-width*.6;const x=p.x+Math.sin(time*.15+p.phase)*50,y=(p.phase/6.29)*height,r=Math.max(width*.38,200);const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,dark?'rgba(176,191,208,.08)':'rgba(126,144,164,.075)');g.addColorStop(1,'rgba(140,160,180,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);}
     }else for(const p of particles){
       const oldX=p.x,oldY=p.y;
       if(effect==='rain'){p.x-=dt*90*p.speed;p.y+=dt*720*p.speed;if(surfaces.collide(p,oldX,oldY)){p.y=rand(-90,-10);p.x=rand(0,width);continue;}ctx.strokeStyle='rgba('+color+',.30)';ctx.lineWidth=.75;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+3,p.y-16*p.speed);ctx.stroke();}
       else if(effect==='snow'){p.x+=dt*(Math.sin(time*.6+p.phase)*22+p.vx*.3);p.y+=dt*48*p.speed;if(surfaces.collide(p,oldX,oldY)){p.y=rand(-90,-10);p.x=rand(0,width);continue;}ctx.fillStyle=dark?'rgba(236,245,255,.7)':'rgba(250,253,255,.88)';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}
-      else if(effect==='hail'){p.x+=dt*(p.bounce?p.vx*4:-65);p.y+=dt*p.speed;if(!p.bounce&&p.y>=height-6){p.y=height-6;p.speed=-rand(100,210);p.bounce=1;}if(p.bounce)p.speed+=dt*850;ctx.fillStyle=dark?'rgba(216,235,255,.7)':'rgba(213,231,248,.85)';ctx.strokeStyle='rgba('+color+',.35)';ctx.lineWidth=.65;ctx.beginPath();ctx.arc(p.x,p.y,p.size*.85+.6,0,Math.PI*2);ctx.fill();ctx.stroke();}
+      else if(effect==='hail'){p.x+=dt*(p.bounce?p.vx*4:-65);p.y+=dt*p.speed;if(surfaces.collide(p,oldX,oldY))continue;if(!p.bounce&&p.y>=height-6){p.y=height-6;p.speed=-rand(100,210);p.bounce=1;}if(p.bounce)p.speed+=dt*850;ctx.fillStyle=dark?'rgba(216,235,255,.7)':'rgba(213,231,248,.85)';ctx.strokeStyle='rgba('+color+',.35)';ctx.lineWidth=.65;ctx.beginPath();ctx.arc(p.x,p.y,p.size*.85+.6,0,Math.PI*2);ctx.fill();ctx.stroke();}
       if(p.y>height+25||p.x< -70||p.x>width+70){p.y=rand(-90,-10);p.x=rand(0,width);p.bounce=0;p.speed=effect==='hail'?rand(430,760):rand(.6,1.4);}
     }
     ctx.restore();surfaces.draw(ctx,dt,time,dark);
@@ -91,5 +91,5 @@
   addEventListener('resize',resize);document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelRequest();state();}else{if(mode==='auto')update();state();}});
   addEventListener('pagehide',()=>{disposed=true;cancelRequest();state();});addEventListener('pageshow',e=>{if(e.persisted){disposed=false;state();if(mode==='auto')update();}});
   reduced.addEventListener('change',()=>{label();state();});new MutationObserver(state).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});new MutationObserver(state).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
-  resize();changeEffect();if(mode==='auto')update();
+  viewport=window.trackViewportCanvas(canvas,ctx,1.5,resize);resize();changeEffect();if(mode==='auto')update();
 })();

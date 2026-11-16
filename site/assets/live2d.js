@@ -44,7 +44,7 @@
     const maskSize=height*resolution>500?1024:512,cubism=model.internalModel.renderer;
     if(cubism&&cubism.getClippingMaskBufferSize&&cubism.getClippingMaskBufferSize()!==maskSize){cubism.setClippingMaskBufferSize(maskSize);cubism.startUp(renderer.gl);}
     widget.dataset.resolution=resolution.toFixed(2);widget.dataset.maskSize=String(maskSize);model.scale.set(1);
-    const scale=Math.min(width*.98/model.width,height*.98/model.height);model.scale.set(scale);model.anchor.set(.5,1);model.position.set(width/2,height);app.renderer.render(app.stage);
+    const scale=Math.min(width*.98/model.width,height*.98/model.height);model.scale.set(scale);model.anchor.set(.5,1);model.position.set(width/2,height);if(animator)animator.follow();app.renderer.render(app.stage);
   }
   function renderResolution(width,height){
     const zoom=window.visualViewport?visualViewport.scale||1:1,native=Math.max(1,(devicePixelRatio||1)*zoom),budget=compact.matches?3000000:4000000;
@@ -60,7 +60,9 @@
     const pools={head:['head','happy','shy'],face:['wink','blush','surprise'],ear:['ear','curious'],body:['body','bounce','curious','tail'],wing:['wing','proud'],tail:['tail','startled']};
     const duration={angry:6000,dizzy:3000,love:2400,pet:2600,wing:2300,tail:2100,stretch:3400,yawn:3800,look:3300,tilt:2600,'ear-idle':2200,hum:3300,inspect:6200};
     const magnifier=widget.querySelector('.dragon-magnifier'),lensText=magnifier.querySelector('text'),umbrella=widget.querySelector('.dragon-umbrella');
-    const handIndex=core.getDrawableIndex('ArtMesh102');let selectionTarget=null;
+    const handIndex=core.getDrawableIndex('ArtMesh102'),headIndices=['ArtMesh87','ArtMesh139','ArtMesh140','ArtMesh16'].map(id=>core.getDrawableIndex(id)).filter(i=>i>=0);let selectionTarget=null;
+    const umbrellaRig=umbrella.querySelector('.umbrella-rig'),canopy=umbrella.querySelector('.umbrella-canopy'),shaft=umbrella.querySelector('.umbrella-shaft'),snowCap=umbrella.querySelector('.umbrella-snow');
+    const shelter={curve:Array.from({length:17},()=>({x:0,y:0})),impact:0,snow:0,grip:{x:0,y:0}};
     let action=null,actionTimer=0,lastElapsed=model.elapsedTime,wing=0,tail=0,nextIdle=model.elapsedTime+1500,serial=0,force=false;
     let nextEar=model.elapsedTime+random(2200,4200),earStart=-10000,earSide=1,lastNotice=-15000,lastContext=-15000;
     let stroke=null,lastHitAt=0,lastPetAt=-5000,clicks=[],spamUntil=0;
@@ -75,7 +77,7 @@
     }
     function clearGesture(){stroke=null;clicks=[];if(action&&action.kind==='inspect'){clearAction();renderOnce();}}
     function clearAction(){clearTimeout(actionTimer);action=null;selectionTarget=null;magnifier.hidden=true;lensText.textContent='';delete widget.dataset.reaction;delete widget.dataset.activity;widget.classList.remove('is-angry');}
-    function renderOnce(){if(reduced.matches){force=true;model.update(1);app.renderer.render(app.stage);force=false;}}
+    function renderOnce(){if(reduced.matches){force=true;model.update(1);holdMagnifier();holdUmbrella();app.renderer.render(app.stage);force=false;}}
     function begin(kind,side=1,idle=false,origin='interaction'){
       if(widget.hidden||action&&action.kind==='angry'&&kind!=='angry')return false;
       if(action&&action.kind==='dizzy'&&!idle&&kind!=='angry')return false;
@@ -111,13 +113,27 @@
       magnifier.style.transform='translate('+(point.x-14*scale)+'px,'+(point.y-98*scale)+'px)';
     }
     function sheltering(){return weatherActive&&['rain','snow','hail'].includes(weatherEffect)&&(!action||!['inspect','angry'].includes(action.kind));}
+    function headBounds(){
+      let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+      for(const i of headIndices){const v=model.internalModel.getDrawableVertices(i);for(let n=0;n<v.length;n+=2){left=Math.min(left,v[n]);right=Math.max(right,v[n]);top=Math.min(top,v[n+1]);bottom=Math.max(bottom,v[n+1]);}}
+      const points=[[left,top],[right,top],[left,bottom],[right,bottom]].map(([x,y])=>model.toGlobal(model.internalModel.localTransform.apply(new PIXI.Point(x,y))));
+      return {x:(Math.min(...points.map(p=>p.x))+Math.max(...points.map(p=>p.x)))/2,y:Math.min(...points.map(p=>p.y))};
+    }
     function holdUmbrella(){
       umbrella.hidden=!sheltering();if(umbrella.hidden){widget._weatherShelter=null;return;}
-      const point=handPoint();if(!point){umbrella.hidden=true;return;}
-      const scale=widget._bounds.height/310,w=280*scale,h=225*scale,x=point.x-158*scale,y=point.y-205*scale;
-      umbrella.style.width=w+'px';umbrella.style.height=h+'px';
-      umbrella.style.transform='translate('+x+'px,'+y+'px)';
-      widget._weatherShelter={x:widget._bounds.x+x+68*scale,y:widget._bounds.y+y,w:205*scale,h};
+      const point=handPoint();if(!point){umbrella.hidden=true;widget._weatherShelter=null;return;}
+      const b=widget._bounds||(widget._bounds=widget.getBoundingClientRect()),scale=b.height/310,head=headBounds();
+      const dx=head.x-point.x-4*scale,dy=head.y-point.y-54*scale,length=Math.hypot(dx,dy)/scale,angle=clamp(Math.atan2(dx,-dy),-.45,.45)+shelter.impact*.018;
+      const cos=Math.cos(angle),sin=Math.sin(angle),svg=umbrella.firstElementChild,view='0 0 '+b.width+' '+b.height;
+      if(svg.getAttribute('viewBox')!==view)svg.setAttribute('viewBox',view);
+      umbrellaRig.setAttribute('transform','translate('+point.x+' '+point.y+') rotate('+(angle*180/Math.PI)+') scale('+scale+')');
+      canopy.setAttribute('transform','translate(0 '+(-length)+')');shaft.setAttribute('d','M0 '+(-length+1)+'V9q0 8-7 8');
+      shelter.x=Infinity;shelter.y=Infinity;let right=-Infinity;
+      for(let i=0;i<shelter.curve.length;i++){const x=-86+i/16*172,y=36*(x/86)**2-length,p=shelter.curve[i];p.x=b.x+point.x+(x*cos-y*sin)*scale;p.y=b.y+point.y+(x*sin+y*cos)*scale;shelter.x=Math.min(shelter.x,p.x);right=Math.max(right,p.x);shelter.y=Math.min(shelter.y,p.y);}
+      shelter.w=right-shelter.x;shelter.bottom=b.bottom;shelter.scale=scale;shelter.grip.x=b.x+point.x;shelter.grip.y=b.y+point.y;
+      if(weatherEffect!=='snow')shelter.snow=0;
+      snowCap.style.strokeWidth=String(1+Math.min(3,shelter.snow));snowCap.style.opacity=String(Math.min(1,shelter.snow));
+      widget._weatherShelter=shelter;
       umbrella.dataset.weather=weatherEffect;
     }
     function burst(kind,x,y){
@@ -176,7 +192,8 @@
         lastIdle=idleBag.pop();begin(lastIdle,Math.random()<.5?-1:1,true);
       }
       const target=action?pose(action.kind,reduced.matches?.45:clamp((elapsed-action.start)/action.duration),action.side):{wingSpeed:.9,tailSpeed:1.3,wingAmp:.36,tailAmp:.65,closeL:0,closeR:0,lift:0};
-      if(sheltering()){target.Param55=-16;target.Param57=12;target.wingAmp=Math.min(target.wingAmp,.2);}
+      shelter.impact*=Math.exp(-dt/260);
+      if(sheltering()){target.Param55=-16-shelter.impact*3;target.Param57=12;target.wingAmp=Math.min(target.wingAmp,.2);target.closeL=Math.max(target.closeL||0,shelter.impact*.35);target.closeR=Math.max(target.closeR||0,shelter.impact*.35);}
       const alpha=force||reduced.matches?1:1-Math.exp(-dt/85);
       for(const id of blendedParameters){const value=target[id]||0;blend[id]=(blend[id]||0)+(value-(blend[id]||0))*alpha;}
       for(const id of faces)set(id,blend[id]);for(const id of offsets)add(id,blend[id]);
@@ -187,10 +204,9 @@
       }
       set('ParamEyeLOpen',core.getParameterValueById('ParamEyeLOpen')*(1-blend.closeL));set('ParamEyeROpen',core.getParameterValueById('ParamEyeROpen')*(1-blend.closeR));
       wing+=dt/1000*blend.wingSpeed;tail+=dt/1000*blend.tailSpeed;set('Param41',Math.sin(wing)*blend.wingAmp);set('Param50',Math.sin(tail)*blend.tailAmp);model.position.y=widget.clientHeight-blend.lift;
-      holdMagnifier();holdUmbrella();
     }
     model.internalModel.on('beforeModelUpdate',tick);
-    return {begin,context,notice,tap,inspect,clearGesture,weather(){holdUmbrella();renderOnce();},isInspecting:()=>!!action&&action.kind==='inspect',move(hit,x,y){if(performance.now()-lastHitAt<55)return;lastHitAt=performance.now();strokeAt(hit,x,y);}};
+    return {begin,context,notice,tap,inspect,clearGesture,follow(){holdMagnifier();holdUmbrella();},weather(){holdUmbrella();renderOnce();},isInspecting:()=>!!action&&action.kind==='inspect',move(hit,x,y){if(performance.now()-lastHitAt<55)return;lastHitAt=performance.now();strokeAt(hit,x,y);}};
   }
   async function load(){
     if(hidden||model||loading)return;loading=true;
@@ -203,12 +219,15 @@
       const magnifier=document.createElement('span');magnifier.className='dragon-magnifier';magnifier.hidden=true;magnifier.setAttribute('aria-hidden','true');
       magnifier.innerHTML='<svg viewBox="0 0 74 110" fill="none"><defs><clipPath id="dragon-lens-clip"><circle cx="42" cy="34" r="20"/></clipPath><radialGradient id="dragon-lens-glow" cx=".3" cy=".25" r=".8"><stop stop-color="#f2fcff" stop-opacity=".95"/><stop offset="1" stop-color="#a2dded" stop-opacity=".75"/></radialGradient></defs><path d="M32 57 14 98" stroke="#182c42" stroke-width="11" stroke-linecap="round"/><path d="M31 58 16 92" stroke="#47677a" stroke-width="6" stroke-linecap="round"/><path d="m29 63 4-9" stroke="#e9be65" stroke-width="9"/><circle cx="42" cy="34" r="24" fill="#e6b75b" stroke="#243e55" stroke-width="2"/><circle cx="42" cy="34" r="20.5" fill="url(#dragon-lens-glow)" stroke="#628b9f" stroke-width="1.5"/><g clip-path="url(#dragon-lens-clip)"><text x="42" y="38" text-anchor="middle" fill="#233e51" font-family="sans-serif" font-size="12" font-weight="600"></text><path d="M27 28a16 16 0 0 1 12-10M52 43l3-4" stroke="white" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/></g></svg>';
       const umbrella=document.createElement('span');umbrella.className='dragon-umbrella';umbrella.hidden=true;umbrella.setAttribute('aria-hidden','true');
-      umbrella.innerHTML='<svg viewBox="0 0 280 225" fill="none"><defs><linearGradient id="dragon-rain-fabric" x1="30" y1="10" x2="180" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="#9cbbc2"/><stop offset=".5" stop-color="#557d91"/><stop offset="1" stop-color="#36576f"/></linearGradient></defs><path d="M158 54v143q0 16-12 13" stroke="#21384a" stroke-width="6" stroke-linecap="round"/><path d="M157 55v140" stroke="#c7d5d8" stroke-width="2"/><g transform="translate(60 0)"><path class="umbrella-fabric" d="M8 80Q20 16 108 11q85 0 105 69-18-13-34 0-18-12-35 0-18-12-36 0-18-12-36 0-18-12-34 0-17-13-30 0Z" fill="url(#dragon-rain-fabric)" stroke="#29495d" stroke-width="1.7"/><path d="M108 11Q62 20 38 80m70-69q-20 22-36 69m36-69q15 20 36 69m-36-69q48 14 71 69" stroke="#d8ebec" stroke-opacity=".46" stroke-width="1"/><path d="M108 6v7M8 80l-1 4m31-4-1 4m35-4v4m36-4v4m36-4v4m35-4 1 4m33-4 1 4" stroke="#29495d" stroke-width="2" stroke-linecap="round"/><path class="umbrella-snow" d="M15 61q23-45 93-47 72 0 98 47" stroke="#f2f8fc" stroke-width="5" stroke-linecap="round"/></g></svg>';
+      umbrella.innerHTML='<svg viewBox="0 0 240 310" fill="none"><defs><linearGradient id="dragon-rain-fabric" x1="-75" y1="0" x2="85" y2="45" gradientUnits="userSpaceOnUse"><stop stop-color="#789da8"/><stop offset=".5" stop-color="#385e78"/><stop offset="1" stop-color="#183d58"/></linearGradient></defs><g class="umbrella-rig"><path class="umbrella-shaft" stroke="#aac3c9" stroke-width="2.8" stroke-linecap="round"/><g class="umbrella-canopy"><path d="M-86 36Q0-36 86 36q-14-12-28.7 0-14-11-28.6 0Q14 26 0 36q-14-10-28.7 0-14-11-28.6 0-14-12-28.7 0Z" fill="url(#dragon-rain-fabric)" stroke="#142f46" stroke-width="1.3"/><path d="M0 0Q-34 0-57.3 36M0 0Q-14 4-28.7 36M0 0V36M0 0Q14 4 28.7 36M0 0Q34 0 57.3 36" stroke="#c5e2e8" stroke-opacity=".36" stroke-width=".8"/><path d="M0-4V1M-86 36v2m28.7-2v2m28.6-2v2M0 36v2m28.7-2v2m28.6-2v2M86 36v2" stroke="#234359" stroke-width="1.6" stroke-linecap="round"/><path d="M-81 31Q0-32 81 31" stroke="#d4edf1" stroke-opacity=".25" stroke-width="1"/><path class="umbrella-snow" d="M-80 31Q0-31 80 31" stroke="#f3f9fc" stroke-linecap="round"/></g></g></svg>';
       const close=document.createElement('button');close.className='live2d-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','隐藏 Live2D');close.addEventListener('click',()=>setHidden(true));
       const sizing=document.createElement('button');sizing.type='button';sizing.className='live2d-size-button';sizing.textContent='⤢';sizing.dataset.live2dSize='';sizing.setAttribute('aria-label','调整 Live2D 大小');sizing.setAttribute('aria-controls','live2d-size-controls');sizing.setAttribute('aria-expanded','false');widget.append(canvas,magnifier,sizing,close);document.body.append(widget);
       widget.insertBefore(umbrella,magnifier);
       app=new PIXI.Application({view:canvas,width:240,height:310,backgroundAlpha:0,antialias:true,resolution:renderResolution(240,310),autoDensity:true,autoStart:false,powerPreference:'low-power'});app.ticker.maxFPS=compact.matches?30:36;
-      model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>{if(reduced.matches||widget.hidden||document.hidden){state();return;}model.update(app.ticker.deltaMS);});animator=createAnimator();model.update(0);
+      model=await PIXI.live2d.Live2DModel.from('/assets/live2d/blue-dragon/dragon.model3.json',{autoInteract:false,autoUpdate:false});app.stage.addChild(model);app.ticker.add(()=>{if(reduced.matches||widget.hidden||document.hidden){state();return;}model.update(app.ticker.deltaMS);});animator=createAnimator();
+      // Live2DModel.update queues time; the mesh is deformed later inside _render.
+      const updateModel=model.internalModel.update;
+      model.internalModel.update=function(...args){const result=updateModel.apply(this,args);animator.follow();return result;};model.update(0);
       widget._renderCache=window.cacheLive2DGeometry(model,app.renderer);
       // Hit testing is handled by this module; Pixi's independent polling ticker is redundant.
       if(app.renderer.plugins.interaction)app.renderer.plugins.interaction.useSystemTicker=false;
@@ -262,7 +281,7 @@
   document.addEventListener('pointerup',()=>{selecting=false;readSelection();},{passive:true});
   document.addEventListener('pointercancel',()=>{selecting=false;readSelection();},{passive:true});
   addEventListener('blur',()=>{selecting=false;clearTimeout(selectionTimer);if(animator)animator.clearGesture();});
-  addEventListener('resize',layout);compact.addEventListener('change',layout);reduced.addEventListener('change',state);
+  addEventListener('resize',layout);addEventListener('site-viewport',layout);compact.addEventListener('change',layout);reduced.addEventListener('change',state);
   if(window.visualViewport)visualViewport.addEventListener('resize',layout);
   // A monitor change or browser zoom can change DPR without changing CSS size.
   let densityQuery=null;

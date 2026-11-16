@@ -16,7 +16,7 @@ SitePage.register('linux', scope => {
   scope.on(reduced,'change',()=>{if(reduced.matches){paused=true;updateControl();}});
   scope.on(document,'visibilitychange',()=>{visible=!document.hidden;wakeWait();});scope.on(window,'pagehide',()=>{visible=false;wakeWait();});scope.on(window,'pageshow',()=>{visible=!document.hidden;wakeWait();});
   const viewportObserver=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;wakeWait();});viewportObserver.observe(screen);
-  async function wait(ms){let remaining=ms;while(remaining>0&&!closing){const running=!paused&&!interacting&&visible&&inView,start=performance.now();await new Promise(resolve=>{releaseWait=resolve;if(running)sleepTimer=setTimeout(wakeWait,remaining);});if(running)remaining-=Math.max(0,performance.now()-start);}}
+  async function wait(ms){let remaining=ms;while(remaining>0&&!closing){const running=!paused&&!interacting&&visible&&inView,start=performance.now();await new Promise(resolve=>{releaseWait=resolve;if(running)sleepTimer=setTimeout(wakeWait,Math.max(1,Math.ceil(remaining)));});if(running)remaining-=Math.max(0,performance.now()-start);}}
   function bottom(){lines.scrollTop=lines.scrollHeight;}
   function out(text,cls=''){const row=element('div','linux-line '+cls,text);lines.append(row);while(lines.children.length>90)lines.firstElementChild.remove();bottom();return row;}
   function prompt(kind='shell'){

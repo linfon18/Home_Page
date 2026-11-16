@@ -4,11 +4,10 @@
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'),compact=matchMedia('(max-width: 767px), (pointer: coarse)');
   const canvas=document.createElement('canvas');canvas.className='ambient-field';canvas.setAttribute('aria-hidden','true');document.body.prepend(canvas);
   const ctx=canvas.getContext('2d');
-  let frame=0,last=0,time=0,width=0,height=0,dark=false,stars=[],bursts=[],pointer={x:-1000,y:-1000};
+  let frame=0,last=0,time=0,width=0,height=0,dark=false,stars=[],bursts=[],meteors=[],nextMeteor=1+Math.random()*7,meteorPasses=0,pointer={x:-1000,y:-1000};
   const rand=(a,b)=>a+Math.random()*(b-a);
   function resize(){
-    width=innerWidth;height=innerHeight;const ratio=Math.min(devicePixelRatio||1,1.25);canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
-    if(ctx)ctx.setTransform(ratio,0,0,ratio,0,0);
+    width=innerWidth;height=innerHeight;
     stars=Array.from({length:compact.matches?26:62},()=>({x:rand(0,width),y:rand(0,height),r:rand(.65,1.7),speed:rand(3,11),phase:rand(0,Math.PI*2)}));
   }
   function stop(){cancelAnimationFrame(frame);frame=0;last=0;}
@@ -30,12 +29,26 @@
       const a=stars[n],b=stars[k],dx=a.x-b.x,dy=a.y-b.y,distance2=dx*dx+dy*dy;
       if(distance2<9025){const distance=Math.sqrt(distance2);ctx.strokeStyle='rgba('+color+','+(.11*(1-distance/95))+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
     }
-    // A short shooting arc passes through an empty edge of the sky.
-    const phase=time%13;if(phase<1.8){const p=phase/1.8,x=width*(.15+p*.55),y=height*.07+p*height*.22;const gradient=ctx.createLinearGradient(x-95,y-30,x,y);gradient.addColorStop(0,'rgba('+color+',0)');gradient.addColorStop(1,'rgba('+color+','+(Math.sin(p*Math.PI)*.65)+')');ctx.strokeStyle=gradient;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x-95,y-30);ctx.lineTo(x,y);ctx.stroke();}
+    // Each meteor crosses a different section of sky; the wake evaporates behind it.
+    if(time>=nextMeteor){
+      const rightward=Math.random()<.65,angle=rightward?rand(.28,.58):Math.PI-rand(.28,.58),life=rand(.95,1.6);
+      meteors.push({start:time,x:width*(rightward?rand(.02,.48):rand(.52,.98)),y:rand(-20,height*.15),angle,life,speed:rand(.4,.7)*Math.min(width,1100),length:rand(95,190)*(compact.matches?.65:1),seed:rand(0,6.28)});
+      nextMeteor=time+life+rand(6,15);canvas.dataset.meteorPasses=String(++meteorPasses);
+    }
+    meteors=meteors.filter(m=>time-m.start<m.life+.35);
+    for(const m of meteors){
+      const age=time-m.start,p=clampMeteor(age/m.life),distance=m.speed*(age*.88+age*age*.12/m.life),dx=Math.cos(m.angle),dy=Math.sin(m.angle),x=m.x+dx*distance,y=m.y+dy*distance;
+      const light=Math.min(1,age/.12)*Math.pow(1-clampMeteor((age-m.life*.55)/(m.life*.45+.35)),1.3),length=m.length*Math.min(1,age/.22)*(1-p*.25);
+      const gradient=ctx.createLinearGradient(x-dx*length,y-dy*length,x,y);gradient.addColorStop(0,'rgba('+color+',0)');gradient.addColorStop(.7,'rgba('+color+','+(light*.24)+')');gradient.addColorStop(1,'rgba('+color+','+(light*.85)+')');
+      ctx.strokeStyle=gradient;ctx.lineWidth=1.2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x-dx*length,y-dy*length);ctx.lineTo(x,y);ctx.stroke();
+      ctx.fillStyle='rgba('+color+','+(light*.85)+')';ctx.beginPath();ctx.arc(x,y,1.3,0,Math.PI*2);ctx.fill();
+      for(let k=1;k<=4;k++){const behind=length*(.25+k*.14),spread=Math.sin(m.seed+k*2.3)*p*3;ctx.fillStyle='rgba('+color+','+(light*(1-k/5)*.35)+')';ctx.beginPath();ctx.arc(x-dx*behind-dy*spread,y-dy*behind+dx*spread,.5+(k%2)*.25,0,Math.PI*2);ctx.fill();}
+    }
     bursts=bursts.filter(b=>time-b.start<1);
     for(const b of bursts){const p=time-b.start;ctx.strokeStyle='rgba('+color+','+((1-p)*.65)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x,b.y,6+p*105,0,Math.PI*2);ctx.stroke();for(let k=0;k<8;k++){const angle=k*Math.PI/4;ctx.fillStyle='rgba('+color+','+((1-p)*.8)+')';ctx.fillRect(b.x+Math.cos(angle)*p*72,b.y+Math.sin(angle)*p*72,2,2);}}
     canvas.dataset.frames=String((Number(canvas.dataset.frames)||0)+1);wake();
   }
+  function clampMeteor(value){return Math.max(0,Math.min(1,value));}
   function state(){dark=document.documentElement.dataset.theme==='dark';canvas.hidden=reduced.matches;if(reduced.matches){stop();bursts=[];if(ctx)ctx.clearRect(0,0,width,height);}else wake();}
   addEventListener('resize',()=>{resize();wake();});addEventListener('pointermove',e=>{if(e.pointerType!=='touch')pointer={x:e.clientX,y:e.clientY};},{passive:true});
   document.addEventListener('pointerleave',()=>{pointer={x:-1000,y:-1000};});
@@ -43,7 +56,7 @@
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else wake();});addEventListener('pagehide',stop);addEventListener('pageshow',state);
   new MutationObserver(state).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   new MutationObserver(()=>{if(document.querySelector('dialog[open]'))stop();else wake();}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
-  reduced.addEventListener('change',state);resize();state();
+  reduced.addEventListener('change',state);window.trackViewportCanvas(canvas,ctx,1.25,resize);resize();state();
 
   const nav=document.querySelector('.main-nav'),indicator=document.createElement('span');indicator.className='nav-tracker';indicator.setAttribute('aria-hidden','true');nav.prepend(indicator);
   function follow(link){
