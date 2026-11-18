@@ -174,7 +174,7 @@ Live2D 在雨、雪和冰雹模式撑伞，伞柄跟随原模型的手部网格�
 
 ## 搜索引擎与分享
 
-各页面输出完整静态 HTML，标题统一为 `linfon18的小站`，保留各页独立简介、绝对 canonical、Open Graph 与 Twitter 分享标签，以及 Person、WebSite、WebPage 和面包屑 JSON-LD。文章和笔记自动生成 TechArticle 数据，只有 Markdown 填写日期时才输出发布日期；sitemap 的 lastmod 使用实际填写的更新或发布日期。404 和旧地址跳转页设为 noindex。发布的 Markdown 同步进入索引、搜索、RSS 和 sitemap，草稿全部排除。
+各页面输出完整静态 HTML，页面标题由各页主题与站名 `linfon18的小站` 组成，文章和笔记使用 Markdown 标题。保留各页独立简介、绝对 canonical、Open Graph 与 Twitter 分享标签，以及 Person、WebSite、WebPage 和面包屑 JSON-LD。文章和笔记自动生成 TechArticle 数据，只有 Markdown 填写日期时才输出发布日期；sitemap 的 lastmod 使用实际填写的更新或发布日期。404 和旧地址跳转页设为 noindex。发布的 Markdown 同步进入索引、搜索、RSS 和 sitemap，草稿全部排除。
 
 生产域名由 `config.json` 的 `site_url` 控制，换域名后需重新构建。站点地图位于 `/sitemap.xml`，robots 已包含其地址。
 
