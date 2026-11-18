@@ -6,13 +6,13 @@
   let app=null,model=null,widget=null,animator=null,loading=false,hidden=false,awayAt=0;
   let selectionTimer=0,selecting=false,lastSelection='',customSize=1,sizeOpener=null,maximized=false;
   let weatherEffect='clear',weatherActive=false;
-  let placement=null,dock=null,limits=null,gesture=null,dragFrame=0,previousTap=null,suppressClick=null;
+  let placement=null,dock=null,limits=null,gesture=null,dragFrame=0,fallFrame=0,previousTap=null,suppressClick=null;
   const positionKey='linfon-live2d-position';
   try{hidden=localStorage.getItem('linfon-live2d')==='hidden';}catch(_){}
   try{const saved=Number(localStorage.getItem('linfon-live2d-scale'));if(Number.isFinite(saved)&&saved>0)customSize=clamp(saved,.5,2);}catch(_){}
   try{maximized=localStorage.getItem('linfon-live2d-fit')==='max';}catch(_){}
-  try{const p=JSON.parse(localStorage.getItem(positionKey));if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y))placement={x:clamp(p.x),y:clamp(p.y)};}catch(_){}
-  function savePosition(){try{if(placement)localStorage.setItem(positionKey,JSON.stringify(placement));else localStorage.removeItem(positionKey);}catch(_){}}
+  try{const p=JSON.parse(localStorage.getItem(positionKey));if(p&&Number.isFinite(p.x))placement={x:clamp(p.x),y:1};}catch(_){}
+  function savePosition(){try{if(placement)localStorage.setItem(positionKey,JSON.stringify({x:placement.x}));else localStorage.removeItem(positionKey);}catch(_){}}
   const sizePanel=document.createElement('section');sizePanel.className='live2d-settings';sizePanel.id='live2d-size-controls';sizePanel.hidden=true;sizePanel.setAttribute('aria-label','Live2D 大小');
   sizePanel.innerHTML='<header><span>Live2D 大小</span><button type="button" class="live2d-settings-close" aria-label="关闭大小设置">×</button></header><label for="live2d-scale">缩放 <output for="live2d-scale" aria-live="polite">100%</output></label><input id="live2d-scale" type="range" min="50" max="200" step="5" value="100"><div class="live2d-size-actions"><button type="button" data-size-step="-10" aria-label="缩小 Live2D">−</button><button type="button" data-size-reset>恢复默认</button><button type="button" data-size-step="10" aria-label="放大 Live2D">+</button></div>';
   const maxButton=document.createElement('button');maxButton.type='button';maxButton.dataset.sizeMax='';maxButton.textContent='MAX';maxButton.setAttribute('aria-label','Live2D 适应屏幕');sizePanel.querySelector('.live2d-size-actions').append(maxButton);
@@ -21,7 +21,7 @@
   function openSize(button){sizeOpener=button;sizePanel.hidden=false;document.querySelectorAll('[data-live2d-size]').forEach(b=>b.setAttribute('aria-expanded','true'));layout();sizeInput.focus({preventScroll:true});}
   function setSize(value,save=true){if(save)maximized=false;customSize=clamp(Number.isFinite(value)?value:1,.5,2);const percent=Math.round(customSize*100);sizeInput.value=String(percent);sizeInput.setAttribute('aria-valuetext',percent+'%');sizeOutput.textContent=maximized?'MAX':percent+'%';maxButton.setAttribute('aria-pressed',String(maximized));sizePanel.querySelector('[data-size-step="-10"]').disabled=!maximized&&percent<=50;sizePanel.querySelector('[data-size-step="10"]').disabled=!maximized&&percent>=200;if(save)try{localStorage.setItem('linfon-live2d-scale',String(customSize));localStorage.removeItem('linfon-live2d-fit');}catch(_){}layout();}
   sizeInput.addEventListener('input',()=>setSize(Number(sizeInput.value)/100));
-  sizePanel.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;if(button.hasAttribute('data-size-step'))setSize(Math.round((customSize+Number(button.dataset.sizeStep)/100)*100)/100);if(button.hasAttribute('data-size-reset')){endGesture(null,true);placement=null;savePosition();setSize(1);}if(button.hasAttribute('data-size-max')){maximized=!maximized;try{if(maximized)localStorage.setItem('linfon-live2d-fit','max');else localStorage.removeItem('linfon-live2d-fit');}catch(_){}setSize(customSize,false);}if(button.classList.contains('live2d-settings-close'))closeSize(true);});
+  sizePanel.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;if(button.hasAttribute('data-size-step'))setSize(Math.round((customSize+Number(button.dataset.sizeStep)/100)*100)/100);if(button.hasAttribute('data-size-reset')){endGesture(null,true);stopFall();placement=null;savePosition();setSize(1);}if(button.hasAttribute('data-size-max')){maximized=!maximized;try{if(maximized)localStorage.setItem('linfon-live2d-fit','max');else localStorage.removeItem('linfon-live2d-fit');}catch(_){}setSize(customSize,false);}if(button.classList.contains('live2d-settings-close'))closeSize(true);});
   document.addEventListener('click',e=>{const button=e.target.closest('[data-live2d-size]');if(button){if(sizePanel.hidden)openSize(button);else closeSize(true);return;}if(!e.target.closest('.live2d-settings'))closeSize();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sizePanel.hidden){e.preventDefault();closeSize(true);}});
   function script(src){return new Promise((resolve,reject)=>{const el=document.createElement('script');el.src=src;el.onload=resolve;el.onerror=reject;document.head.append(el);});}
@@ -29,7 +29,7 @@
     const visible=!hidden&&!document.hidden&&!document.querySelector('dialog[open]');
     if(document.hidden||document.querySelector('dialog[open]'))closeSize();
     toggle.setAttribute('aria-pressed',String(!hidden));toggle.setAttribute('aria-label',hidden?'显示 Live2D':'隐藏 Live2D');
-    if(!widget)return;if(!visible)endGesture(null,true);widget.hidden=!visible;
+    if(!widget)return;if(!visible)endGesture(null,true);if(!visible||reduced.matches&&!gesture)stopFall(true);widget.hidden=!visible;
     if(!visible){lastSelection='';if(animator)animator.clearGesture();}
     if(app){if(visible)layout();if(visible&&!reduced.matches)app.start();else{app.stop();if(visible)app.renderer.render(app.stage);}}
   }
@@ -41,7 +41,26 @@
   }
   function moveTo(x,y){
     if(!dock||!limits)return;
-    placement={x:limits.spanX?clamp((x-limits.left)/limits.spanX):.5,y:limits.spanY?clamp((y-limits.top)/limits.spanY):.5};place();
+    placement={x:limits.spanX?clamp((x-limits.left)/limits.spanX):.5,y:limits.spanY?clamp((y-limits.top)/limits.spanY):1};place();
+  }
+  function stopFall(settle=false){
+    cancelAnimationFrame(fallFrame);fallFrame=0;
+    if(settle&&placement&&placement.y<1){placement.y=1;place();}
+  }
+  function fallToFloor(side){
+    stopFall();if(!placement)return;
+    savePosition();
+    if(reduced.matches||widget.hidden){stopFall(true);return;}
+    const from=placement.y,distance=(1-from)*limits.spanY;
+    if(distance<1){stopFall(true);animator.begin('land',side);return;}
+    const start=performance.now(),duration=clamp(Math.sqrt(2*distance/2400)*1000,110,850);
+    function fall(now){
+      const progress=clamp((now-start)/duration);
+      placement.y=from+(1-from)*progress*progress;place();
+      if(progress<1)fallFrame=requestAnimationFrame(fall);
+      else{fallFrame=0;animator.begin('land',side);}
+    }
+    fallFrame=requestAnimationFrame(fall);
   }
   function layout(){
     const view=window.visualViewport,viewWidth=Math.min(innerWidth,view?view.width:innerWidth),viewHeight=Math.min(innerHeight,view?view.height:innerHeight);
@@ -105,7 +124,7 @@
       nextIdle=model.elapsedTime+length+random(2200,4500);actionTimer=setTimeout(()=>{clearAction();renderOnce();},length+200);renderOnce();return true;
     }
     function context(kind,side=1){
-      const now=performance.now();if(gesture||reduced.matches||now-lastContext<9000||action&&!action.idle)return false;
+      const now=performance.now();if(gesture||fallFrame||reduced.matches||now-lastContext<9000||action&&!action.idle)return false;
       if(begin(kind,side,false,'context')){lastContext=now;return true;}return false;
     }
     function notice(){const now=performance.now();if(now-lastNotice>14000&&context('happy'))lastNotice=now;}
@@ -248,7 +267,11 @@
       const canvas=document.createElement('canvas');canvas.setAttribute('aria-label','蓝龙：点按、长按或拖动；回车摸头，空格扇翅，Shift 加方向键移动');canvas.setAttribute('role','button');canvas.tabIndex=0;
       canvas.addEventListener('keydown',e=>{
         const step={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[e.key];
-        if(e.shiftKey&&step&&widget._bounds){e.preventDefault();moveTo(widget._bounds.x+step[0],widget._bounds.y+step[1]);savePosition();return;}
+        if(e.shiftKey&&step&&widget._bounds&&!gesture){
+          e.preventDefault();moveTo(widget._bounds.x+step[0],widget._bounds.y+step[1]);
+          if(step[1]&&placement.y<1)fallToFloor(step[0]<0?-1:1);else if(placement.y===1)stopFall();
+          savePosition();return;
+        }
         if(['+','=','-','0'].includes(e.key)){e.preventDefault();setSize(e.key==='0'?1:Math.round((customSize+(e.key==='-'?-.1:.1))*100)/100);return;}
         const kind=e.key==='Enter'?'head':e.key===' '?'wing':e.key==='ArrowDown'?'tail':e.key==='ArrowUp'?'surprise':e.key==='ArrowLeft'||e.key==='ArrowRight'?'curious':'';
         if(kind&&animator){e.preventDefault();animator.begin(kind,e.key==='ArrowLeft'?-1:1);}
@@ -306,7 +329,7 @@
     if(g.dragging&&!cancelled){g.x=e.clientX;g.y=e.clientY;drawDrag();}
     gesture=null;widget.classList.remove('is-dragging');
     if(g.grip.hasPointerCapture(g.id))g.grip.releasePointerCapture(g.id);
-    if(g.dragging){savePosition();if(!cancelled&&!reduced.matches)animator.begin('land',g.hit.side);}
+    if(g.dragging||placement&&placement.y<1)fallToFloor(g.hit.side);
     if(cancelled)return;
     suppressClick={x:e.clientX,y:e.clientY,at:performance.now()};
     if(g.dragging||g.held){previousTap=null;return;}
@@ -320,6 +343,7 @@
     const b=widget._bounds,x=e.clientX-b.x,y=e.clientY-b.y;
     if(x<0||y<0||x>b.width||y>b.height)return;
     const target=hit(x,y);if(!target)return;
+    stopFall();
     const grip=widget.querySelector('.live2d-grip');
     gesture={id:e.pointerId,grip,hit:target,startX:e.clientX,startY:e.clientY,x:e.clientX,y:e.clientY,offsetX:x,offsetY:y,lean:0,dragging:false,held:false,canDrag:e.pointerType==='mouse'||grip.contains(e.target)};
     const g=gesture;
@@ -373,7 +397,7 @@
   function watchDensity(){if(densityQuery)densityQuery.removeEventListener('change',densityChanged);densityQuery=matchMedia('(resolution: '+(devicePixelRatio||1)+'dppx)');densityQuery.addEventListener('change',densityChanged);}
   function densityChanged(){watchDensity();layout();}watchDensity();
   document.addEventListener('visibilitychange',()=>{if(document.hidden)awayAt=performance.now();state();if(!document.hidden&&animator&&performance.now()-awayAt>20000)animator.context('happy');});
-  addEventListener('pagehide',()=>{endGesture(null,true);if(app)app.stop();});addEventListener('pageshow',state);new MutationObserver(state).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
+  addEventListener('pagehide',()=>{endGesture(null,true);stopFall(true);if(app)app.stop();});addEventListener('pageshow',state);new MutationObserver(state).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
   new MutationObserver(()=>{if(animator)animator.context('curious');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   let terminalObserver=null;
   function watchTerminal(){

@@ -68,6 +68,11 @@ def position(widget):
     return box['x'], box['y']
 
 
+def wait_for_floor(page):
+    page.wait_for_function('''()=>{const w=document.querySelector('.live2d-widget'),b=w.getBoundingClientRect();
+      return Math.abs(b.bottom-innerHeight)<1&&w.dataset.reaction==='land'}''')
+
+
 dist = Path(__file__).resolve().parents[1] / 'dist'
 server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Handler, directory=str(dist)))
 Thread(target=server.serve_forever, daemon=True).start()
@@ -100,14 +105,21 @@ try:
           if(!s||r.x>1000)return false;
           const p=new DOMPoint(0,0).matrixTransform(w.querySelector('.umbrella-canopy').getScreenCTM());
           return Math.hypot(p.x-s.curve[8].x,p.y-s.curve[8].y)<.5}''')
+        held = position(widget)
+        assert abs(held[0] - (start[0] - 350)) < 2 and abs(held[1] - (start[1] - 240)) < 2
         page.mouse.up()
+        page.wait_for_function('''y=>{const b=document.querySelector('.live2d-widget').getBoundingClientRect();
+          return b.y>y+2&&b.bottom<innerHeight-2}''', arg=held[1])
+        wait_for_floor(page)
         moved = position(widget)
-        assert abs(moved[0] - (start[0] - 350)) < 2 and abs(moved[1] - (start[1] - 240)) < 2
-        assert widget.get_attribute('data-reaction') == 'land'
+        assert abs(moved[0] - held[0]) < 1 and abs(moved[1] - start[1]) < 1
         assert widget.get_attribute('data-taps') == '2'
         page.locator('.main-nav a[href="/articles/"]').click()
         page.wait_for_function('document.body.dataset.page==="articles"')
         assert position(widget) == moved
+        # Older versions saved a midair y value; reloading still puts the dragon on the floor.
+        page.evaluate('''()=>{const key='linfon-live2d-position',p=JSON.parse(localStorage.getItem(key));
+          if('y' in p)throw new Error('Stored airborne position');localStorage.setItem(key,JSON.stringify({...p,y:.2}))}''')
         page.reload(wait_until='networkidle')
         page.wait_for_selector('.live2d-widget[data-ready=true]')
         assert position(widget) == moved
@@ -116,7 +128,36 @@ try:
         widget.locator('[data-live2d-size]').click()
         page.locator('[data-size-reset]').click()
         assert position(widget) == start
-        print('PASS desktop tap, double tap, long press, drag, umbrella and position persistence', flush=True)
+        print('PASS desktop gestures, umbrella tracking, animated fall and horizontal persistence', flush=True)
+
+        x, y = box_point(widget, .5, .28)
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x - 220, y - 420, steps=8)
+        page.wait_for_function('document.querySelector(".live2d-widget").classList.contains("is-dragging")')
+        page.mouse.up()
+        page.wait_for_function('''y=>{const b=document.querySelector('.live2d-widget').getBoundingClientRect();
+          return b.y>y+2&&b.bottom<innerHeight-2}''', arg=start[1]-420)
+        page.mouse.move(*box_point(widget, .5, .28))
+        page.mouse.down()
+        page.mouse.move(x - 300, y - 370, steps=5)
+        page.wait_for_function('document.querySelector(".live2d-widget").classList.contains("is-dragging")')
+        page.wait_for_timeout(850)
+        assert widget.bounding_box()['y'] < start[1] - 250
+        page.mouse.up()
+        wait_for_floor(page)
+        print('PASS grabbing Live2D again interrupts the fall', flush=True)
+
+        page.emulate_media(reduced_motion='reduce')
+        x, y = box_point(widget, .5, .28)
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x - 140, y - 220, steps=6)
+        page.wait_for_function('''y=>document.querySelector('.live2d-widget').getBoundingClientRect().y<y-200''',
+                               arg=start[1])
+        page.mouse.up()
+        assert abs(widget.bounding_box()['y'] - start[1]) < 1
+        print('PASS reduced motion lands immediately', flush=True)
         desktop.close()
 
         mobile = browser.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True,
@@ -136,15 +177,16 @@ try:
             session.send('Input.dispatchTouchEvent', {'type': 'touchMove',
                          'touchPoints': [{'x': x - 12 * step, 'y': y - 20 * step}]})
         session.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        wait_for_floor(page)
         moved = position(widget)
-        assert abs(moved[0] - start[0] + 96) < 2 and abs(moved[1] - start[1] + 160) < 2, (start, moved)
+        assert abs(moved[0] - start[0] + 96) < 2 and abs(moved[1] - start[1]) < 2, (start, moved)
         assert page.evaluate('scrollY') == before_scroll
         assert widget.get_attribute('data-taps') == '1'
         assert page.evaluate('([x,y])=>!document.elementFromPoint(x,y).closest(".live2d-widget")', [moved[0]+2, moved[1]+2])
         page.set_viewport_size({'width': 844, 'height': 390})
         page.wait_for_function('''()=>{const r=document.querySelector('.live2d-widget').getBoundingClientRect();
           return r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight}''')
-        print('PASS real touch drag, transparent corner, and resize bounds', flush=True)
+        print('PASS real touch drag, automatic landing, transparent corner, and resize bounds', flush=True)
         mobile.close()
         browser.close()
 finally:
