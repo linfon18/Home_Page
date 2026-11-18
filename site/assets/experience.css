@@ -75,6 +75,7 @@ body[data-page=home] .site-footer{padding-bottom:24px}
 .home-side{animation:none}
 .home-console{--bg:#10151b;--ink:#d3dedc;--muted:#a2b0b5;--faint:#89969e;--blue:#8ab4f8;--green:#a8cf98;--red:#f28b82;--line:#ffffff18;--blue-soft:#243c53;background:#10151b;color:var(--ink);border:1px solid #33404b;border-radius:18px;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;animation:none;transition:none;transform:none}
 .home-console .console-bar{background:#171e26}.home-console .console-footer{background:#131a22}.home-console .console-footer i{animation:none;box-shadow:none}.home-console .linux-screen{background:#10151b;outline-offset:-2px}.home-console .linux-screen:focus-visible{outline:1px solid #8ab4f8}
+.home-console .linux-screen{cursor:text}
 .home-console .icon-button,.home-console .icon-button:hover{background:transparent;transform:none;transition:none}.home-console .ripple{display:none}
 .home-console .syn-keyword{color:#c5a4ee}.home-console .syn-type{color:#83cfcc}.home-console .syn-method{color:#a4c5ff}.home-console .syn-string{color:#e9c98c}.home-console .vim-number{color:#e5ba91}.home-console .linux-debug{color:#c7a0e4}
 .terminal-interactive{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;background:#10151b;color:var(--ink);padding:15px 19px 10px;font:inherit;cursor:text}

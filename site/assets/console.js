@@ -13,7 +13,7 @@ SitePage.register('console', scope => {
   let cwd=project,active=false,hovered=false,timer=0,mode='shell',historyIndex=0,savedInput='',editorFile='',editorText='',vimInsert=false,autoRow=null,output=lines,stage=false,visualRow=null,savedNodes=null,dirty=false;
   scope.cleanup(()=>{clearTimeout(timer);clearTimeout(pingTimer);programs.dispose();active=false;});
   const history=[];
-  let pingTimer=0,pingRun=null,touchOwned=false,composing=false,lastDebuggerCommand='',stageSnapshot=null,programPrompt='';
+  let pingTimer=0,pingRun=null,touchOwned=false,composing=false,lastDebuggerCommand='',stageSnapshot=null,programPrompt='',screenPointer=null;
   const files=new Map([
     [project+'/probe.c','#include <stdio.h>\n\nstatic int retry_limit = 3;\nstatic int timeout_ms = 1200;\n\nstatic int probe(int attempt)\n{\n    return attempt < retry_limit ? 0 : 1;\n}\n\nint main(void)\n{\n    printf("timeout=%dms\\n", timeout_ms);\n    return probe(1);\n}\n'],
     [project+'/README.md','# netprobe\nA small C program for gcc, gdb and vim practice.\n\nmake && ./build/probe\n\n这是一个本地模拟终端。输入 help 查看命令。\n'],
@@ -71,7 +71,13 @@ SitePage.register('console', scope => {
   function children(path){return shell.children(path);}
   function cancel(){clearTimeout(timer);timer=0;}
   function attachForm(){form.classList.toggle('is-capture',mode!=='vim');if(mode==='vim')overlay.append(form);else screen.append(form);}
-  function activate(focus=true){
+  function focusCommand(){
+    const target=mode==='vim'?(document.activeElement===input?input:textarea):input;
+    if(document.activeElement===target)return;
+    target.focus({preventScroll:true});
+    if(target===input)input.setSelectionRange(input.value.length,input.value.length);
+  }
+  function activate(){
     cancel();if(!active){
       active=true;panel.classList.add('is-interactive');document.dispatchEvent(new CustomEvent('terminal-interaction',{detail:true}));document.dispatchEvent(new CustomEvent('terminal-snapshot-request'));
       stage=lines.hidden;output=lines;stageSnapshot=null;autoRow=null;dirty=false;
@@ -81,7 +87,7 @@ SitePage.register('console', scope => {
       }
       setPrompt();attachForm();if(mode==='vim')overlay.hidden=false;
     }
-    if(focus&&mode!=='vim'){input.focus({preventScroll:true});input.setSelectionRange(input.value.length,input.value.length);}
+    focusCommand();
   }
   function resume(){
     if(!active)return;cancel();programs.cancel();if(['train','top','job','confirm'].includes(mode)){mode='shell';input.readOnly=false;}if(stageSnapshot){stageSnapshot.forEach(([el,hidden])=>el.hidden=hidden);lines.hidden=stage;stageSnapshot=null;}touchOwned=false;if(pingRun)stopPing(false);active=false;overlay.hidden=true;transcript.hidden=true;form.remove();
@@ -92,8 +98,18 @@ SitePage.register('console', scope => {
   function schedule(){if(!active||touchOwned)return;cancel();timer=setTimeout(()=>{if(!touchOwned)resume();},5000);}
   panel.addEventListener('pointerenter',e=>{if(e.pointerType==='touch')return;hovered=true;activate();});
   panel.addEventListener('pointerleave',e=>{hovered=false;if(e.pointerType!=='touch')schedule();});
-  screen.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'||e.pointerType==='pen')touchOwned=true;activate(false);if(mode!=='vim')input.focus({preventScroll:true});});
-  screen.addEventListener('focus',()=>activate());
+  panel.addEventListener('click',e=>{
+    if(e.target.closest('button,a,input,textarea,select,label,[contenteditable]'))return;
+    const selection=getSelection();
+    if(selection&&!selection.isCollapsed&&panel.contains(selection.anchorNode))return;
+    if(e.pointerType==='touch'||e.pointerType==='pen'||matchMedia('(pointer: coarse)').matches)touchOwned=true;
+    activate();
+  });
+  screen.addEventListener('pointerdown',e=>{if(e.isPrimary)screenPointer=e.pointerId;},{passive:true});
+  const clearScreenPointer=e=>{if(e.pointerId===screenPointer)screenPointer=null;};
+  scope.on(document,'pointerup',clearScreenPointer,true);
+  scope.on(document,'pointercancel',clearScreenPointer,true);
+  screen.addEventListener('focus',()=>{if(screenPointer===null)activate();});
   panel.addEventListener('focusin',()=>{if(active)cancel();});
   panel.addEventListener('focusout',()=>{if(active&&!hovered)schedule();});
   scope.on(document,'pointerdown',e=>{if(active&&!panel.contains(e.target)){touchOwned=false;schedule();}},{passive:true});

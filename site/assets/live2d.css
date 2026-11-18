@@ -1,5 +1,8 @@
 .live2d-widget{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:0;width:clamp(180px,17vw,240px);height:clamp(235px,22vw,310px);z-index:35;pointer-events:none;contain:layout style}
 .live2d-widget[hidden]{display:none}.live2d-widget canvas{display:block;width:100%;height:100%;pointer-events:none}
+.live2d-grip{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;touch-action:none}
+.live2d-grip path{pointer-events:fill;cursor:grab;touch-action:none;-webkit-touch-callout:none}
+.live2d-widget.is-dragging .live2d-grip path{cursor:grabbing}
 .live2d-close{position:absolute;top:15%;right:8px;width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:50%;font:18px/1 sans-serif;pointer-events:auto;opacity:.5;cursor:pointer}
 .live2d-close:hover,.live2d-close:focus-visible{opacity:1}
 .live2d-size-button{position:absolute;top:15%;right:38px;width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:50%;font:18px/1 sans-serif;pointer-events:auto;opacity:.55;cursor:pointer}.live2d-size-button:hover,.live2d-size-button:focus-visible{opacity:1}

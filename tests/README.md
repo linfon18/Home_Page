@@ -8,6 +8,7 @@ python -m pip install playwright
 python -m playwright install chromium
 python tests/weather-flow.py
 python tests/live2d-parity.py
+python tests/input-gestures.py
 python tests/visual-effects.py
 python tests/profile-rendering.py local
 ```
@@ -21,6 +22,7 @@ python tests/live2d-parity.py
 
 - `weather-flow.py`：确定性供水检查，包含挂滴增长、脱落、连续流、断水、数量上限、终端内部遮挡与天气切换。无需 `dist/`。
 - `live2d-parity.py`：默认/MAX 的桌面和手机同帧 RGBA 比较、GPU 上下文恢复、清晰度和终端暂停恢复。需要构建后的 `dist/`。
+- `input-gestures.py`：终端空白处聚焦和拖选，Live2D 点按、长按、拖动、伞面跟随、跨页和刷新保留位置。需要 `dist/`。
 - `visual-effects.py`：滚动条槽、DPR 1/2/3、伞柄与伞面几何、雨雪遮挡、伞檐排水、冰雹反弹、MAX 和跨页、爆炸触发与清理、流星随机间隔。需要 `dist/`；可设置 `EFFECTS_CAPTURE_DIR` 输出关键帧截图。
 - `profile-rendering.py`：静置、鼠标、下雨、隐藏模型四组测量，输出 CDP 指标、调用次数、GPU 后端与采样热点。可选参数为标签和静态目录；不会覆盖存档。
 
