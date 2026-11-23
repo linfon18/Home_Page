@@ -1,6 +1,14 @@
 /* Motion lives around the content; panels stay flat and translucent. */
 .ambient-field{position:fixed;inset:0;z-index:-1;width:100%;height:100%;pointer-events:none;contain:strict}
 .ambient-field[hidden]{display:none}
+.arrival-trails{position:fixed;inset:0;width:100%;height:100%;z-index:4;pointer-events:none;contain:strict}
+@media(prefers-reduced-motion:no-preference){
+  .wallpaper .daily-wallpaper.reveal-from-avatar{animation:arrival-exposure .95s cubic-bezier(.23,.68,.24,1) both}
+  @keyframes arrival-exposure{
+    from{clip-path:circle(0% at var(--exposure-x) var(--exposure-y));opacity:.7}
+    to{clip-path:circle(150% at var(--exposure-x) var(--exposure-y));opacity:1}
+  }
+}
 .main-nav{position:relative;isolation:isolate}.main-nav>a{position:relative;z-index:1;transition:color .2s,transform .25s}.main-nav>a.is-active{background:transparent;box-shadow:none}.nav-tracker{position:absolute;top:0;left:0;z-index:0;pointer-events:none;border-radius:99px;background:var(--blue-soft);transition:transform .48s cubic-bezier(.22,1,.36,1),width .4s,height .3s}
 .home-name h1{animation:name-reveal 1.1s .14s cubic-bezier(.16,1,.3,1) both}.home-name h1>span{display:inline-block;animation:name-dot 3.8s 1.2s ease-in-out infinite}.home-name>p{width:fit-content;position:relative}.home-name>p:after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:1px;transform-origin:left;background:linear-gradient(90deg,var(--blue),transparent);animation:motto-line 1.2s .65s cubic-bezier(.16,1,.3,1) both}
 .avatar-orbit:after{content:"";position:absolute;inset:-4px;border-radius:40px;border:1px dashed var(--line);animation:orbit-breathe 8s ease-in-out infinite}.avatar-orbit:before{content:"";position:absolute;top:-3px;left:25%;width:5px;height:5px;border-radius:50%;background:var(--blue);animation:orbit-spark 4s ease-in-out infinite}
@@ -23,22 +31,32 @@
   .main-nav:has(>a:active) .nav-tracker::before{scale:.92 .87}
 }
 .main-home :is(.home-profile,.home-project,.home-entry){position:relative}
-.home-profile .home-lens{
-  position:absolute;z-index:2;top:0;left:0;width:124px;height:124px;padding:0;
-  border-radius:32%;border:1px solid #ffffff88;background:linear-gradient(144deg,#ffffff0d,transparent 58%,#b8daff1f);
-  box-shadow:inset 1px 1px 1px #ffffffc7,inset -1px -1px 2px #8095bf52,3px 8px 17px #172c4c20;
-  -webkit-backdrop-filter:url(#home-lens-optics);backdrop-filter:url(#home-lens-optics);
-  cursor:grab;touch-action:none;user-select:none;
+.site-header .nav-tracker{transition:none;background:linear-gradient(153deg,#ffffff40,transparent 52%),var(--nav-pill);box-shadow:inset 0 1px 1px #ffffff80,inset 0 -1px 1px #101c3326}
+.nav-tracker.has-optics{-webkit-backdrop-filter:url(#nav-refraction);backdrop-filter:url(#nav-refraction)}
+.theme-menu button.is-active{-webkit-backdrop-filter:url(#nav-refraction);backdrop-filter:url(#nav-refraction);box-shadow:inset 0 1px 1px #ffffff68}
+body:has(.main-nav:hover) .cursor-ring{opacity:0}
+.main-nav:has(.nav-tracker:not([hidden]))>a.is-active{box-shadow:none}
+.project-signal{position:relative;display:flex;align-items:center;justify-content:space-between;flex:0 1 56px;min-width:16px;height:12px;color:var(--blue);margin-inline-start:auto}
+.project-signal::before{content:"";position:absolute;left:3px;right:3px;height:1px;background:currentColor;opacity:.35}
+.project-signal i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.project-signal b{position:absolute;left:2px;right:2px;height:3px}
+.project-signal b::after{content:"";position:absolute;width:7px;height:3px;border-radius:3px;background:currentColor;opacity:0}
+.home-project:has(.project-signal)>.icon{margin-left:0}
+@media(max-width:480px){.project-signal{flex-basis:21px}}
+@media(prefers-reduced-motion:no-preference){
+  .home-project:is(:hover,:focus-visible,:active) .project-signal b::after,.home-project.scene-entered .project-signal b::after{animation:packet-out .9s ease-in-out 2}
+  .home-project:is(:hover,:focus-visible,:active) .project-signal b::after{animation-name:packet-respond}
+  @keyframes packet-out{0%{left:0;opacity:0}18%,76%{opacity:1}100%{left:calc(100% - 7px);opacity:0}}
+  @keyframes packet-respond{0%{left:0;opacity:0}18%,76%{opacity:1}100%{left:calc(100% - 7px);opacity:0}}
+  .home-project:is(:hover,:focus-visible,:active) .project-signal i:last-child{animation:peer-reply .9s .55s ease-out 2}
+  @keyframes peer-reply{25%{box-shadow:0 0 0 4px transparent;outline:1px solid currentColor;outline-offset:3px}100%{outline:1px solid transparent;outline-offset:7px}}
+  .home-entry:is(:hover,:focus-visible,:active) h3>.icon{animation:entry-arrow .52s both}
+  @keyframes entry-arrow{40%{transform:translate(4px,-4px)}70%{transform:translate(1px,-1px)}to{transform:translate(2px,-2px)}}
+  .home-entry:is(:hover,:focus-visible,:active) .home-entry-tags>span{animation:tag-lift .42s both}
+  .home-entry .home-entry-tags>span:nth-child(2){animation-delay:45ms}
+  .home-entry .home-entry-tags>span:nth-child(3){animation-delay:90ms}
+  @keyframes tag-lift{45%{translate:0 -3px}75%{translate:0 .5px}to{translate:0 0}}
 }
-.home-profile .home-lens.is-held{cursor:grabbing}
-.home-lens>i{position:absolute;inset:4px;border-radius:inherit;border-top:1px solid #ffffff54;pointer-events:none}
-.home-lens:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
-.home-lens>svg{position:absolute;pointer-events:none}
-.lens-glint{position:absolute;z-index:1;width:16px;height:2px;border-radius:100%;pointer-events:none;background:#fff;box-shadow:0 0 4px #8dcff9;animation:lens-trace .48s ease-out forwards}
-.lens-glint:after{content:"";position:absolute;inset:0;background:inherit;border-radius:inherit;transform:rotate(90deg) scale(.62,1)}
-@keyframes lens-trace{from{opacity:.95;transform:rotate(-16deg) scale(1)}to{opacity:0;transform:translate(0,9px) rotate(30deg) scale(.15)}}
-body:has(.home-lens:is(:hover,.is-held)) .cursor-ring{opacity:0}
-@media(max-width:680px){.home-profile .home-lens{width:94px;height:94px}}
 @supports (mask-composite:exclude){
   .main-home :is(.home-profile,.home-project,.home-entry)::after{
     content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;

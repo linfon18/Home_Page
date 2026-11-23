@@ -39,6 +39,7 @@
   addEventListener('resize', scheduleSample);
   addEventListener('site-page', scheduleSample);
   function show(image) {
+    if (image && layer.classList.contains('opening-exposure')) image.classList.add('reveal-from-avatar');
     layer.replaceChildren(...(image ? [image] : []));
     layer.classList.toggle('has-daily-image', Boolean(image));
     scheduleSample();
