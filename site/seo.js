@@ -41,13 +41,13 @@ module.exports=function seo(route,c,name,pagePath,note){
   }
   if(note){
     const article={'@type':'TechArticle','@id':url+'#article',headline:note.title,description:note.description,url,image,inLanguage:'zh-CN',author:{'@id':person['@id']},mainEntityOfPage:{'@id':page['@id']},articleSection:note.category,keywords:note.tags.join(', ')};
-    if(note.date)article.datePublished=note.date+'T00:00:00+08:00';
+    if(note.date)article.datePublished=note.publishedAt;
     if(note.updated)article.dateModified=note.updated+'T00:00:00+08:00';
     graph.push(article);page.mainEntity={'@id':article['@id']};
   }
   return '<title>'+e(title)+'</title><meta name="description" content="'+e(description)+'"><meta name="author" content="'+e(c.name)+'"><meta name="robots" content="'+(route==='404'?'noindex, follow':'index, follow, max-image-preview:large')+'"><link rel="canonical" href="'+e(url)+'">'+
     [['og:title',title],['og:description',description],['og:type',note?'article':'website'],['og:url',url],['og:site_name',siteName],['og:locale','zh_CN'],['og:image',image],['og:image:alt',c.name+' 的 GitHub 头像']].map(v=>'<meta property="'+v[0]+'" content="'+e(v[1])+'">').join('')+
     [['twitter:card','summary'],['twitter:title',title],['twitter:description',description],['twitter:image',image],['twitter:image:alt',c.name+' 的 GitHub 头像']].map(v=>'<meta name="'+v[0]+'" content="'+e(v[1])+'">').join('')+
-    (note&&note.date?'<meta property="article:published_time" content="'+note.date+'T00:00:00+08:00">':'')+(note&&note.updated?'<meta property="article:modified_time" content="'+note.updated+'T00:00:00+08:00">':'')+
+    (note&&note.date?'<meta property="article:published_time" content="'+note.publishedAt+'">':'')+(note&&note.updated?'<meta property="article:modified_time" content="'+note.updated+'T00:00:00+08:00">':'')+
     (route==='404'?'':'<script type="application/ld+json">'+json({'@context':'https://schema.org','@graph':graph})+'</script>');
 };

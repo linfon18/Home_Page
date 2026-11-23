@@ -33,17 +33,19 @@ for(const type of ['posts','notes']){
     if(!/^[a-z0-9-]+$/.test(slug))throw new Error('Use a lowercase URL-safe filename: '+name);
     if(!meta.title||!meta.description||!meta.category)throw new Error('Missing metadata: '+name);
     for(const field of ['date','updated'])if(meta[field]&&(!/^\d{4}-\d{2}-\d{2}$/.test(meta[field])||!Number.isFinite(Date.parse(meta[field]))||new Date(meta[field]).toISOString().slice(0,10)!==meta[field]))throw new Error('Use a valid YYYY-MM-DD '+field+': '+name);
+    const publishedAt=meta.published || (meta.date && meta.date+'T00:00:00+08:00');
+    if(meta.published && (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:Z|[+-]\d{2}:\d{2})$/.test(meta.published) || !Number.isFinite(Date.parse(meta.published)) || meta.published.slice(0,10)!==meta.date))throw new Error('Invalid commit timestamp: '+name);
     notes.push({
       slug, type, url: '/' + (type === 'posts' ? 'articles' : 'notes') + '/' + slug + '/',
       title: meta.title, description: meta.description, category: meta.category,
-      date: meta.date || '', updated: meta.updated || '',
+      date: meta.date || '', publishedAt, preciseDate: Boolean(meta.published), updated: meta.updated || '',
       pinned: type === 'posts' && meta.pinned === 'true',
       tags: (meta.tags || '').split(',').map(x => x.trim()).filter(Boolean),
       body: match[2], minutes: Math.max(1, Math.ceil(match[2].length / 500))
     });
   }
 }
-notes.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||a.slug.localeCompare(b.slug));
+notes.sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)||a.slug.localeCompare(b.slug));
 fs.mkdirSync(out, { recursive: true });
 function copyTree(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
@@ -67,7 +69,7 @@ for (const note of notes) {
 fs.writeFileSync(path.join(out,'assets/search-index.json'),JSON.stringify(notes.map(n=>({title:n.title,description:n.description,type:n.type,url:n.url,category:n.category,tags:n.tags,text:n.body.replace(/[#*`>]/g,'')}))));
 const xmlEscape=v=>String(v).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 const baseURL=(config.site_url||'https://linfon18.loft.games').replace(/\/$/,'');
-const feed='<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>'+xmlEscape(config.name+'的小站')+'</title><link>'+xmlEscape(baseURL)+'</link><description>文章、笔记与折腾记录</description><language>zh-CN</language>'+notes.map(n=>'<item><title>'+xmlEscape(n.title)+'</title><link>'+xmlEscape(baseURL+n.url)+'</link><guid isPermaLink="true">'+xmlEscape(baseURL+n.url)+'</guid><description>'+xmlEscape(n.description)+'</description><category>'+xmlEscape(n.category)+'</category>'+(n.date?'<pubDate>'+new Date(n.date+'T00:00:00+08:00').toUTCString()+'</pubDate>':'')+'</item>').join('')+'</channel></rss>';
+const feed='<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>'+xmlEscape(config.name+'的小站')+'</title><link>'+xmlEscape(baseURL)+'</link><description>文章、笔记与折腾记录</description><language>zh-CN</language>'+notes.map(n=>'<item><title>'+xmlEscape(n.title)+'</title><link>'+xmlEscape(baseURL+n.url)+'</link><guid isPermaLink="true">'+xmlEscape(baseURL+n.url)+'</guid><description>'+xmlEscape(n.description)+'</description><category>'+xmlEscape(n.category)+'</category>'+(n.date?'<pubDate>'+new Date(n.publishedAt).toUTCString()+'</pubDate>':'')+'</item>').join('')+'</channel></rss>';
 fs.writeFileSync(path.join(out,'feed.xml'),feed);
 const oldDeploy=path.join(out,'notes/static-deploy');fs.mkdirSync(oldDeploy,{recursive:true});
 fs.writeFileSync(path.join(oldDeploy,'index.html'),'<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>linfon18的小站</title><meta name="robots" content="noindex, follow"><meta http-equiv="refresh" content="0;url=/articles/static-deploy/"><link rel="canonical" href="'+baseURL+'/articles/static-deploy/"></head><body><a href="/articles/static-deploy/">本站部署说明</a></body></html>');
