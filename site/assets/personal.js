@@ -16,36 +16,72 @@ SitePage.register('personal', scope => {
     const buttons=preview.querySelectorAll('[data-mct-choice]');
     const stage=preview.querySelector('.mct-stage');
     const fallback=stage.querySelector('.mct-fallback');
+    const viewTools=preview.querySelector('.mct-viewtools');
+    const steps=preview.querySelector('.mct-steps');
+    const legend=preview.querySelector('.mct-legend');
+    const lines={
+      signal:['control'],punch:['punch','idle'],direct:['data','control'],shared:['data'],
+      allocate:['control'],relay:['data'],join:['control'],mesh:['data','idle'],forward:['data','idle']
+    };
+    const source=preview.querySelector('[data-mct-source]');
+    const caption=preview.querySelector('[data-mct-summary]');
+    const path=preview.querySelector('[data-mct-path]');
     const photo=preview.querySelector('.mct-photo');
     let mode='p2p', model=null;
+    function changeScene(button){
+      const scene=button.dataset.mctStep;
+      preview.dataset.scene=scene;
+      for(const step of button.parentElement.children)step.setAttribute('aria-pressed',String(step===button));
+      for(const line of legend.children)line.hidden=!lines[scene].includes(line.dataset.line);
+      caption.textContent=button.dataset.summary;
+      path.textContent=button.dataset.path;
+      if(model)model.setScene(scene);
+    }
+    function showModel(ready){
+      stage.classList.toggle('is-rendering',ready);
+      stage.tabIndex=ready?0:-1;
+      stage.setAttribute('aria-label',ready?'联机拓扑图，方向键旋转，Home 重置视角':'联机示意路径');
+      fallback.hidden=ready;
+      viewTools.hidden=legend.hidden=!ready;
+    }
     function updatePhoto(){
       const url='https://mct.loft.games/assets/'+mode+'.png';
       const link=photo.querySelector('a');
       link.href=url;
       if(!photo.open)return;
       let image=link.querySelector('img');
-      if(!image){image=new Image(1122,762);link.prepend(image);}
-      image.alt=preview.querySelector('[aria-pressed="true"]').textContent+' 官方界面';
-      image.src=url;
+      if(!image){image=new Image(1122,762);image.decoding='async';link.prepend(image);}
+      image.alt=preview.querySelector('[data-mct-choice][aria-pressed="true"]').textContent+' 官方界面';
+      if(image.src!==url)image.src=url;
     }
     scope.on(photo,'toggle',updatePhoto);
+    scope.on(viewTools.querySelector('[data-mct-reset]'),'click',()=>{if(model)model.reset();});
     const loader=new IntersectionObserver(entries=>{
       if(!entries.some(entry=>entry.isIntersecting))return;
       loader.disconnect();
-      import('/assets/mct/scene-v1.js').then(module=>{
-        if(scope.alive()){model=module.mount(stage,scope);model.setMode(mode);}
-      }).catch(()=>{fallback.hidden=false;});
+      import('/assets/mct/scene-v2.js').then(module=>{
+        if(!scope.alive())return;
+        model=module.mount(stage,scope,showModel);
+        model.setScene(preview.dataset.scene);
+        showModel(true);
+      }).catch(error=>{
+        if(!scope.alive())return;
+        showModel(false);console.debug('MCT 3D preview unavailable:',error);
+      });
     });
     loader.observe(stage);scope.cleanup(()=>loader.disconnect());
-    preview.querySelector('.mct-modes').hidden=false;
+    preview.querySelector('.mct-modes').hidden=steps.hidden=false;
     scope.on(preview,'click',event=>{
+      const step=event.target.closest('[data-mct-step]');
+      if(step&&step.getAttribute('aria-pressed')!=='true')changeScene(step);
       const choice=event.target.closest('[data-mct-choice]');
       if(!choice||choice.getAttribute('aria-pressed')==='true')return;
       for(const button of buttons)button.setAttribute('aria-pressed',String(button===choice));
-      mode=choice.dataset.mctChoice;
-      fallback.textContent={p2p:'你的电脑　↔　朋友的电脑',link:'你的电脑　↔　中继　↔　朋友的电脑',et:'你的电脑　↔　对等节点　↔　朋友的电脑'}[mode];
-      preview.querySelector('figcaption p').textContent=choice.dataset.summary;
-      updatePhoto();if(model)model.setMode(mode);
+      mode=preview.dataset.mode=choice.dataset.mctChoice;
+      for(const group of steps.children)group.hidden=group.dataset.mctSteps!==mode;
+      const group=steps.querySelector('[data-mct-steps="'+mode+'"]');
+      changeScene(group.querySelector('[aria-pressed="true"]'));
+      source.href=choice.dataset.source;updatePhoto();
     });
   }
   const toc=$('.reading-toc');
