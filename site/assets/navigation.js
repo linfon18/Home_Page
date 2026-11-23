@@ -59,8 +59,18 @@
       document.querySelector('[data-theme-trigger]').setAttribute('aria-expanded','false');
       document.querySelector('.main-nav').classList.remove('is-open');
       const menu=document.querySelector('[data-menu-toggle]');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label','展开导航');
+      // Carry the clicked title into its reading position without snapshotting the whole page.
+      const source=options.title;
+      let origin=null;
+      if(source?.isConnected && next.querySelector('.reading-page h1') && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+        const rect=source.getBoundingClientRect();
+        if(rect.bottom>0 && rect.top<innerHeight){
+          origin={x:rect.left,y:rect.top,size:parseFloat(getComputedStyle(source).fontSize)};
+          next.dataset.titleTransfer='';
+        }
+      }
       document.dispatchEvent(new CustomEvent('site-page-before'));
-      SitePage.dispose();old.replaceWith(next);
+      SitePage.dispose();window.prepareHomeMotion(result.doc.body.dataset.page);old.replaceWith(next);
       document.body.dataset.page=result.doc.body.dataset.page;document.body.dataset.github=result.doc.body.dataset.github;
       const signature=document.querySelector('.footer-signature');signature.replaceChildren(...Array.from(result.doc.querySelector('.footer-signature').childNodes).map(n=>document.importNode(n,true)));
       document.querySelector('.site-footer>div').className=result.doc.querySelector('.site-footer>div').className;
@@ -72,6 +82,13 @@
       if(!options.pop)history.pushState({siteScroll:{x:0,y:0}},'',current.href);
       root.classList.add('is-page-changing');SitePage.mount();
       scrollToTarget(current,options.scroll);next.setAttribute('tabindex','-1');next.focus({preventScroll:true});
+      if(origin){
+        const heading=next.querySelector('.reading-page h1');
+        const rect=heading.getBoundingClientRect(), scale=origin.size/parseFloat(getComputedStyle(heading).fontSize);
+        const from=`translate(${origin.x-rect.left}px,${origin.y-rect.top}px) scale(${scale})`;
+        heading.animate([{transform:from,transformOrigin:'top left'},{transform:'none',transformOrigin:'top left'}],
+          {duration:480,easing:'cubic-bezier(.2,.78,.22,1)'});
+      }
       dispatchEvent(new CustomEvent('site-page',{detail:{url:current.href}}));
       requestAnimationFrame(()=>root.classList.remove('is-page-changing'));
     }catch(error){
@@ -84,7 +101,7 @@
     if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
     const link=event.target.closest('a[href]');if(!link||link.hasAttribute('download')||link.dataset.noNavigation!==undefined||link.target&&link.target!=='_self')return;
     const url=new URL(link.href,location.href);if(url.origin!==location.origin||!/^https?:$/.test(url.protocol)||url.pathname.startsWith('/assets/')||/\.(?:xml|json|md|txt|zip|png|jpe?g|svg|webp|ico|pdf)$/i.test(url.pathname))return;
-    event.preventDefault();navigate(url.href);
+    event.preventDefault();navigate(url.href,{title:link.matches('.home-entry,.entry-row') ? link.querySelector('h2,h3') : null});
   });
   addEventListener('popstate',event=>navigate(location.href,{pop:true,scroll:event.state&&event.state.siteScroll}));
   addEventListener('scroll',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(remember,120);},{passive:true});

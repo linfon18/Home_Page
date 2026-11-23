@@ -89,24 +89,41 @@ SitePage.register('personal', scope => {
     const links=Array.from(toc.querySelectorAll('a[href^="#"]'));
     const headings=links.map(link=>document.getElementById(link.hash.slice(1)));
     const sheet=toc.querySelector('details');
+    const nav=toc.querySelector('nav');
+    const marker=document.createElement('i');
+    marker.className='chapter-marker';marker.setAttribute('aria-hidden','true');nav.prepend(marker);
     const narrow=matchMedia('(max-width:800px)');
     const layout=()=>{sheet.open=!narrow.matches;};
     layout();scope.on(narrow,'change',layout);
-    let active=-1,frame=0,offsets=[],readingInset=0;
+    let active=-1,frame=0,offsets=[],readingInset=0,articleEnd=0;
     function select(){
       frame=0;
       const line=scrollY+readingInset+4;
       let index=0;
       while(index+1<offsets.length&&offsets[index+1]<=line)index++;
+      const length=(offsets[index+1] || articleEnd)-offsets[index];
+      const fraction=Math.max(0,Math.min(1,(line-offsets[index])/Math.max(1,length)));
+      marker.style.setProperty('--chapter-progress',fraction.toFixed(3));
       if(index===active)return;
+      marker.style.transform='translateY('+links[index].offsetTop+'px)';
+      marker.style.height=links[index].offsetHeight+'px';
       if(active>=0)links[active].removeAttribute('aria-current');
       active=index;links[index].setAttribute('aria-current','location');
       toc.querySelector('summary small').textContent=headings[index].textContent;
     }
+    // Layout offsets are stable while headings and ancestors animate in.
+    function layoutTop(el){
+      let y=0;
+      while(el){y+=el.offsetTop;el=el.offsetParent;}
+      return y;
+    }
     function measure(){
       readingInset=(parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0)
         +(parseFloat(getComputedStyle(headings[0]).scrollMarginTop)||0);
-      offsets=headings.map(el=>el.getBoundingClientRect().top+scrollY);
+      active=-1;links.forEach(link=>link.removeAttribute('aria-current'));
+      const article=$('.reading-page');
+      articleEnd=layoutTop(article)+article.offsetHeight;
+      offsets=headings.map(layoutTop);
       if(!frame)frame=requestAnimationFrame(select);
     }
     if(headings.length&&headings.every(Boolean)){
@@ -114,7 +131,17 @@ SitePage.register('personal', scope => {
       const resize=new ResizeObserver(measure);
       resize.observe($('.reading-page'));resize.observe(toc);
       scope.on(window,'scroll',()=>{if(!frame)frame=requestAnimationFrame(select);},{passive:true});
-      scope.on(toc,'click',event=>{if(narrow.matches&&event.target.closest('a'))sheet.open=false;});
+      scope.on(toc,'click',event=>{
+        const link=event.target.closest('a');
+        if(!link || !narrow.matches)return;
+        sheet.open=false;
+        // Wait for the collapsed contents to stop anchoring the mobile viewport.
+        requestAnimationFrame(()=>{
+          if(scope.alive() && location.hash===link.hash){
+            window.scrollTo({top:layoutTop(document.getElementById(link.hash.slice(1)))-readingInset,behavior:'instant'});
+          }
+        });
+      });
       scope.cleanup(()=>{resize.disconnect();cancelAnimationFrame(frame);});
     }
   }

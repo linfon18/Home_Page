@@ -13,7 +13,7 @@
       opening.forEach(animation => animation.cancel());
       opening = [];
     }
-    if (!reduce.matches && !document.hidden && !location.hash && scrollY < innerHeight && photo.animate) {
+    if (document.documentElement.dataset.homeVisit === 'first' && !reduce.matches && !document.hidden && !location.hash && photo.animate) {
       const play = (el, frames, delay, duration) => {
         opening.push(el.animate(frames, { delay, duration, easing: 'cubic-bezier(.2,.78,.25,1)', fill: 'backwards' }));
       };

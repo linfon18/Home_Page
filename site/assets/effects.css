@@ -1,9 +1,9 @@
-﻿/* Motion lives around the content; panels stay flat and translucent. */
+/* Motion lives around the content; panels stay flat and translucent. */
 .ambient-field{position:fixed;inset:0;z-index:-1;width:100%;height:100%;pointer-events:none;contain:strict}
 .ambient-field[hidden]{display:none}
 /* The photo opens behind the page. The glass, text and hit areas stay in place. */
 @media(prefers-reduced-motion:no-preference){
-  body[data-page=home] .wallpaper .daily-wallpaper{animation:photo-aperture 1.05s cubic-bezier(.28,.05,.22,1)}
+  html[data-home-visit=first] body[data-page=home] .wallpaper .daily-wallpaper{animation:photo-aperture 1.05s cubic-bezier(.28,.05,.22,1)}
   @keyframes photo-aperture{from{clip-path:circle(1% at 32% 36%)}to{clip-path:circle(145% at 32% 36%)}}
 }
 .home-name #home-name{width:fit-content;max-width:100%;animation:none}
@@ -178,3 +178,27 @@ body:has(.main-nav:hover) .cursor-ring{opacity:0}
   .mct-viewtools{bottom:10px;left:18px}
 }
 @media print{.reading-layout .reading-toc{display:none}}
+/* Returning to this page should feel like leaving a book open at the same place. */
+html[data-home-visit=return] .main-home :is(.home-profile,.home-profile>*,.home-side),
+html[data-home-visit=return] .home-name>p::after,
+html[data-home-visit=return] .wallpaper .daily-wallpaper{animation:none}
+html[data-home-visit=return] .main-home .reveal{opacity:1;transform:none;transition:none}
+.home-project:has(.relay-field){display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;row-gap:14px;padding-bottom:0;overflow:hidden}
+.home-project .relay-field{display:block;grid-column:1/-1;width:calc(100% + 44px);margin-inline:-22px;height:106px;background:#e4f1f5;color:#83a8b6;--route-ink:#135675;border-top:1px solid var(--line)}
+[data-theme=dark] .home-project .relay-field{background:#101d29;color:#36576d;--route-ink:#99e2ff}
+.home-project .relay-field[hidden]{display:none}
+.home-project .project-signal{width:36px}
+@media(max-width:680px){.home-project .relay-field{height:88px;width:calc(100% + 46px);margin-inline:-23px}.home-project .project-signal{width:18px}}
+/* The fold belongs to the paper edge; the link underneath never moves. */
+.home-entry,.entry-row{position:relative}
+.home-entry::after,.entry-row::after{content:"";pointer-events:none;position:absolute;right:0;bottom:0;width:34px;height:34px;transform-origin:bottom right;transform:scale(0);clip-path:polygon(100% 0,100% 76%,76% 100%,0 100%);border-radius:0 0 12px 0;background:linear-gradient(135deg,transparent 46%,var(--line) 51%,var(--blue-soft) 66%,var(--blue) 145%)}
+@media(prefers-reduced-motion:no-preference){
+  :is(.home-entry,.entry-row)::after{transition:transform .38s cubic-bezier(.2,.85,.27,1.24)}
+  :is(.home-entry,.entry-row):is(:focus-visible,:active)::after{transform:scale(1)}
+  @media(hover:hover){:is(.home-entry,.entry-row):hover::after{transform:scale(1)}}
+}
+.reading-toc nav{position:relative}
+.reading-toc a[aria-current=location]{box-shadow:none}
+.chapter-marker{position:absolute;left:0;top:0;width:3px;pointer-events:none;background:var(--blue-soft);border-radius:3px;overflow:hidden}
+.chapter-marker::before{content:"";position:absolute;inset:0;background:var(--blue);transform:scaleY(var(--chapter-progress,0));transform-origin:top}
+@media(prefers-reduced-motion:no-preference){.chapter-marker{transition:transform .55s cubic-bezier(.2,.95,.28,1.15),height .3s}.chapter-marker::before{transition:transform .1s linear}}

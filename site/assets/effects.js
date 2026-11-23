@@ -94,14 +94,14 @@
 
   let pageAnimation=null;
   document.addEventListener('site-page-before',()=>{if(pageAnimation)pageAnimation.cancel();});
-  addEventListener('site-page',()=>{const main=document.querySelector('#main');if(!reduced.matches&&main.animate)pageAnimation=main.animate([{opacity:.3,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:420,easing:'cubic-bezier(.16,1,.3,1)'});});
+  addEventListener('site-page',()=>{const main=document.querySelector('#main');if(!main.hasAttribute('data-title-transfer')&&document.documentElement.dataset.homeVisit!=='return'&&!reduced.matches&&main.animate)pageAnimation=main.animate([{opacity:.3,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:420,easing:'cubic-bezier(.16,1,.3,1)'});});
   reduced.addEventListener('change',()=>{if(reduced.matches&&pageAnimation)pageAnimation.cancel();});
 
   SitePage.register('motion-scenes',scope=>{
-    if(reduced.matches)return;
+    if(reduced.matches||document.documentElement.dataset.homeVisit==='return')return;
     const animations=new Set(),seen=new WeakSet();let observer=null;
     function enter(el,delay=0){
-      if(seen.has(el)||!el.animate)return;seen.add(el);el.classList.add('scene-entered');
+      if(seen.has(el)||!el.animate||el.matches('[data-title-transfer] .reading-page>header'))return;seen.add(el);el.classList.add('scene-entered');
       const animation=el.animate([{opacity:0,transform:'translate3d(0,26px,0) scale(.985)'},{opacity:1,transform:'translate3d(0,0,0) scale(1)'}],{duration:760,delay,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
       animations.add(animation);animation.onfinish=()=>animations.delete(animation);
     }
