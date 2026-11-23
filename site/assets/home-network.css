@@ -33,7 +33,8 @@
 .home-stage .linux-screen { min-height: 0; height: 100%; }
 .home-stage:has(.home-network.is-expanded) .home-console { height: clamp(418px, 66vh, 650px); }
 @media (min-width:681px) {
-  .home-stage:has(.home-network.is-expanded) .home-side { contain: size; container-type: size; }
+  .home-stage .home-side { container-type: size; }
+  .home-stage .home-console,
   .home-stage:has(.home-network.is-expanded) .home-console { height: 100cqh; }
 }
 @media (prefers-reduced-motion:no-preference) {
@@ -161,9 +162,9 @@ body[data-page="home"] {
 }
 .home-network:not(.is-expanded) :focus-visible { outline-color: var(--blue); }
 @media(min-width:681px){
-  .home-stage:not(:has(.home-network.is-expanded)) { grid-template-rows: var(--compact-console-height) auto; }
+  .home-stage:not(:has(.home-network.is-expanded)) { grid-template-rows: minmax(320px, 1fr) max-content; }
   .home-stage:not(:has(.home-network.is-expanded)) .home-profile { grid-row: 1 / 3; }
-  .main-home .home-network:not(.is-expanded) { grid-column: 2; align-self:start; }
+  .main-home .home-network:not(.is-expanded) { grid-column: 2; align-self: end; }
 }
 @media(prefers-reduced-motion:reduce){.home-network .home-network-toggle .icon { transition:none; }}
 .home-network-icon { position: relative; display: grid; place-items: center; width: 32px; height: 32px; }
