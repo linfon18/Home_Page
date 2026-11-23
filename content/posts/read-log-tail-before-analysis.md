@@ -15,10 +15,38 @@ tags: MCT, C#, 文件流, 日志
 
 比如一份 30,000,000 字节的日志，分析入口从偏移 26,000,000 附近开始解码，再从读到的范围里选最近五千行。窗口恰好从一行中间或者 UTF-8 多字节字符中间切入时，第一行可能是残片。所以这里适合看近期错误，拿它做整份日志的精确计数就不合适了。
 
+## 用八个字节看看切在哪里
+
+把这段放到 .NET 9 控制台项目运行。`前` 占三个字节，尾窗从它的最后一个字节开始。将控制台设成 UTF‑8 可以看到替换字符。
+
+```csharp
+using System;
+using System.IO;
+using System.Text;
+
+Console.OutputEncoding = Encoding.UTF8;
+var sample = Encoding.UTF8.GetBytes("前\nA\nB\n");
+using var stream = new MemoryStream(sample);
+stream.Seek(-6, SeekOrigin.End);
+Console.WriteLine($"length={stream.Length}, offset={stream.Position}");
+using var reader = new StreamReader(stream, Encoding.UTF8);
+while (reader.ReadLine() is { } line)
+    Console.WriteLine($"[{line}]");
+```
+
+```text
+length=8, offset=2
+[�]
+[A]
+[B]
+```
+
+继续套上两行上限，队列只剩 `A` 和 `B`。如果上限是三行，残片就会被送给分析器。追求完整行时可以在截断后跳过首个换行，不过还要处理偏移刚好在行首和窗口里一个换行都没有的情况。后者需要在“仅保留完整行”和“保留这条过长日志的尾部”之间选一个。
+
 ## 分享和分析各用多大的窗口
 
 上传到 mclo.gs 的分支给了 32,000,000 字节，超过才改读尾部。分析入口给的窗口更小，临时运行日志也走同一套读取函数。两个数字都是代码里的十进制字节数，排错时不用猜这个“4 MB”具体怎么算。
 
-文件用 `FileShare.ReadWrite | FileShare.Delete` 打开，核心还在写时也有机会读取。这个选择允许文件变化，因此这些值描述的是读取开始时的窗口，并不构成一份冻结的快照。要核对更早的启动参数，我还是会回到原始日志找。
+文件用 `FileShare.ReadWrite | FileShare.Delete` 打开。`Seek` 决定起点，`StreamReader` 继续读到 EOF。如果生产者在读完前追加，读到的字节可以超过最初算出的预算。需要硬上限时，得在原始字节流上限制读取长度，再交给解码器。
 
 [对应提交 · MCZLF/MinecraftConnectTool `2d511cc`](https://github.com/MCZLF/MinecraftConnectTool/commit/2d511cc9e3e9f2bfb470165f35af5eef8b9ad51f)

@@ -19,6 +19,59 @@ MCT 的房间列表会定时发心跳。为了避免上一次还没发完，下�
 
 这个提交拿掉了停止函数里的释放动作。停止方负责拦住下一轮，拿到许可的发送任务负责在自己的 `finally` 里归还。代码还给释放点加了 `SemaphoreFullException` 的日志，方便看到运行中还剩多少异常路径。给异常套一个 `catch` 自己并不会把计数改对。
 
-复查这种改动，我会把网络请求想成一个可以暂停的步骤。先让请求拿到锁，再发起退房，最后才让请求结束。只测“进房，等一会儿，退房”往往碰不上这个顺序。这个小问题让我以后看定时任务时多问一句：定时器停了，上一轮回调现在在哪？
+## 把退房插进请求中间
+
+下面这段可以放到 .NET 9 控制台项目的 `Program.cs` 里。两个 `TaskCompletionSource` 卡住网络等待的位置，跑多少次都能把“退房”放到第一次 `WaitAsync` 和 `finally` 之间。
+
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+await Run("old", true);
+await Run("new", false);
+
+static async Task Run(string name, bool releaseOnStop)
+{
+    using var permit = new SemaphoreSlim(1, 1);
+    var acquired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    async Task Heartbeat()
+    {
+        await permit.WaitAsync();
+        try
+        {
+            acquired.SetResult();
+            await finish.Task;
+        }
+        finally
+        {
+            permit.Release();
+        }
+    }
+
+    var task = Heartbeat();
+    await acquired.Task;
+    if (releaseOnStop && permit.CurrentCount == 0)
+        permit.Release();
+
+    Console.WriteLine($"{name} after stop: {permit.CurrentCount}");
+    finish.SetResult();
+    try { await task; }
+    catch (SemaphoreFullException) { Console.WriteLine("SemaphoreFullException"); }
+    Console.WriteLine($"{name} after heartbeat: {permit.CurrentCount}");
+}
+```
+
+```text
+old after stop: 1
+SemaphoreFullException
+old after heartbeat: 1
+new after stop: 0
+new after heartbeat: 1
+```
+
+两条路径最终都显示 `1`，所以只断言结束时的计数会漏掉这个回归。停止后的 `0` 表示旧请求还持有许可。如果需要保证退房后请求不会更新当前房间，还得取消或等待旧请求，或者在它返回时检查房间会话。释放许可解决的是并发进入，属于哪个房间得用会话状态判断。
 
 [对应提交 · MCZLF/MinecraftConnectTool `35343ec`](https://github.com/MCZLF/MinecraftConnectTool/commit/35343ec7f0637ffc8820df465b989c63d3fd54da)
