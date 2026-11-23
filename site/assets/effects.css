@@ -202,3 +202,20 @@ html[data-home-visit=return] .main-home .reveal{opacity:1;transform:none;transit
 .chapter-marker{position:absolute;left:0;top:0;width:3px;pointer-events:none;background:var(--blue-soft);border-radius:3px;overflow:hidden}
 .chapter-marker::before{content:"";position:absolute;inset:0;background:var(--blue);transform:scaleY(var(--chapter-progress,0));transform-origin:top}
 @media(prefers-reduced-motion:no-preference){.chapter-marker{transition:transform .55s cubic-bezier(.2,.95,.28,1.15),height .3s}.chapter-marker::before{transition:transform .1s linear}}
+/* The portrait is a real image first, including when GPU rendering is unavailable. */
+.main-home .portrait-cover{--portrait-paper:#eee8da;--portrait-ink:#15241e;--portrait-spot:#246861;position:relative;isolation:isolate;overflow:hidden;min-height:clamp(292px,32vw,415px);margin:0 0 24px;border-radius:clamp(18px,2.4vw,34px);background:radial-gradient(ellipse at 76% 85%,#b9cec0,transparent 53%),linear-gradient(112deg,#f5efdf,#e7dfcc 65%,#c2cab8);color:var(--portrait-ink)}
+[data-theme=dark] .main-home .portrait-cover{--portrait-ink:#f0efde;--portrait-paper:#132523;--portrait-spot:#a1d7c8;background:radial-gradient(ellipse at 75% 85%,#244941,transparent 58%),linear-gradient(112deg,#10221f,#132c2a 68%,#263b35)}
+.portrait-caption{position:relative;z-index:1;pointer-events:none;padding:clamp(24px,4.4vw,72px);min-height:inherit;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:35px}
+.portrait-caption .home-hello{display:flex;gap:20px;color:var(--portrait-ink)}
+.portrait-caption .home-hello span{color:inherit}
+.portrait-caption .home-name h1{font-size:clamp(72px,9.4vw,152px);letter-spacing:-.079em;line-height:.99;font-weight:650;color:inherit;pointer-events:auto}
+.portrait-caption .name-period,.portrait-caption .home-name>p{color:var(--portrait-spot)}
+.portrait-caption .home-name>p{font-size:clamp(12px,1.25vw,17px);letter-spacing:.02em;margin-top:18px}
+.portrait-caption .home-name>p::after{display:none}
+.portrait-still{position:absolute;height:118%;width:auto;right:6%;top:-8%;object-fit:cover;mask-image:radial-gradient(ellipse 52% 68%,black 50%,transparent 100%)}
+.portrait-field{position:absolute;inset:0;width:100%;height:100%;opacity:0;touch-action:pan-y}
+.portrait-cover.has-portrait .portrait-still{visibility:hidden}.portrait-cover.has-portrait .portrait-field{opacity:1}
+.main-home .home-stage>.home-side{padding-top:0}
+.main-home .home-profile>.home-avatar{margin-top:0}
+@media(max-width:680px){.main-home .portrait-cover{min-height:295px;margin-bottom:18px}.portrait-caption{padding:24px 20px 23px;justify-content:space-between;gap:120px}.portrait-caption .home-name h1{font-size:clamp(54px,13vw,80px)}.portrait-caption .home-name>p{margin-top:9px;font-size:11px}.portrait-caption .home-hello{display:grid;gap:5px;font-size:11px}.portrait-still{height:80%;right:-7%;top:-2%}}
+@media print{.portrait-field{display:none}.portrait-cover.has-portrait .portrait-still{visibility:visible}}
