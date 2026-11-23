@@ -33,6 +33,15 @@
   menuToggle.addEventListener('click', () => { const open=nav.classList.toggle('is-open'); menuToggle.setAttribute('aria-expanded',String(open)); menuToggle.setAttribute('aria-label',open?'收起导航':'展开导航'); });
   document.addEventListener('click', e=> { if (!e.target.closest('.nav-shell')) closeNav(); });
   document.addEventListener('keydown', e => { if (e.key==='Escape') { closeTheme();closeNav(); } });
+  // Reveal once; keep all content visible if observers are unavailable.
+  let revealObserver=null;
+  function revealContent(){
+    if(revealObserver)revealObserver.disconnect();
+    if('IntersectionObserver' in window){
+      revealObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('is-visible');revealObserver.unobserve(entry.target);}}),{threshold:.08});
+      $$('.reveal').forEach(el=>revealObserver.observe(el));
+    }else $$('.reveal').forEach(el=>el.classList.add('is-visible'));
+  }
   let scrollQueued=false;
   function updateScroll() { const height=root.scrollHeight-innerHeight; $('.page-progress').style.width=(height>0?scrollY/height*100:0)+'%'; $('.site-header').classList.toggle('scrolled',scrollY>12);scrollQueued=false; }
   addEventListener('scroll',()=>{if(!scrollQueued){scrollQueued=true;requestAnimationFrame(updateScroll);}},{passive:true});updateScroll();
@@ -103,8 +112,8 @@
   }
   document.addEventListener('click',event=>{if(event.target.closest('[data-refresh-github]'))loadGitHub(true);});
   SitePage.register('app',scope=>{
-    githubPage++;cached=readCache();prepareAvatars();if(cached)updateAvatar(cached.profile);tick();
-    scope.cleanup(()=>{githubPage++;loading=false;githubRequests.forEach(controller=>controller.abort());githubRequests.clear();});
+    githubPage++;cached=readCache();revealContent();prepareAvatars();if(cached)updateAvatar(cached.profile);tick();
+    scope.cleanup(()=>{githubPage++;loading=false;githubRequests.forEach(controller=>controller.abort());githubRequests.clear();if(revealObserver)revealObserver.disconnect();});
     loadGitHub(false);
   });
   addEventListener('site-page',updateScroll);

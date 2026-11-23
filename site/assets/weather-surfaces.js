@@ -13,14 +13,25 @@
     // Sample the unchanged wallpaper once per viewport/theme, never per droplet.
     const background=new Image(),refraction=document.createElement('canvas'),optics=refraction.getContext('2d');
     let textureKey='';background.src='/assets/original-background.jpg';
+    let dailyImage=document.querySelector('.daily-wallpaper');
+    window.addEventListener('site-wallpaper',event=>{dailyImage=event.detail;textureKey='';});
     function prepareOptics(dark){
-      if(!background.complete||!background.naturalWidth)return;
-      const key=innerWidth+':'+innerHeight+':'+dark;if(key===textureKey)return;textureKey=key;
+      const image=dailyImage||background;
+      if(!image.complete||!image.naturalWidth)return;
+      const onHome=document.body.dataset.page==='home';
+      const key=innerWidth+':'+innerHeight+':'+dark+':'+onHome;if(key===textureKey)return;textureKey=key;
       refraction.width=innerWidth;refraction.height=innerHeight;
-      const scale=Math.max(innerWidth/background.naturalWidth,innerHeight/background.naturalHeight)*1.045;
-      const w=background.naturalWidth*scale,h=background.naturalHeight*scale;
-      optics.filter='blur(3px)';optics.drawImage(background,(innerWidth-w)/2,(innerHeight-h)/2,w,h);optics.filter='none';
-      optics.fillStyle=dark?'#060f20c4':'#e7f0fba8';optics.fillRect(0,0,innerWidth,innerHeight);
+      const scale=Math.max(innerWidth/image.naturalWidth,innerHeight/image.naturalHeight)*1.045;
+      const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+      optics.filter=onHome?'none':'blur(3px)';optics.drawImage(image,(innerWidth-w)/2,(innerHeight-h)/2,w,h);optics.filter='none';
+      if(onHome){
+        const style=getComputedStyle(document.body);
+        const tint=optics.createLinearGradient(0,76,0,205);
+        tint.addColorStop(0,style.getPropertyValue('--cover-top').trim());
+        tint.addColorStop(1,style.getPropertyValue('--cover-tint').trim());
+        optics.fillStyle=tint;
+      }else optics.fillStyle=dark?'#060f20c4':'#e7f0fba8';
+      optics.fillRect(0,0,innerWidth,innerHeight);
     }
     function clearWater(){water=[];drops=[];film=[];splashes=[];outlets.forEach(resetOutlet);dirty=true;}
     function reset(){clearWater();snow=[];roof=null;hits=snowHits=runoffs=0;dirty=true;}

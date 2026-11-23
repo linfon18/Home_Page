@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   if(!window.SitePage||!window.fetch||!window.DOMParser||!history.pushState)return;
-  const bar=document.createElement('div');
+  const root=document.documentElement,bar=document.createElement('div');
   bar.className='navigation-progress';bar.hidden=true;bar.setAttribute('role','progressbar');bar.setAttribute('aria-label','正在加载页面');
   const fill=document.createElement('i');bar.append(fill);document.body.append(bar);
   let current=new URL(location.href),request=null,serial=0,finishTimer=0,stepTimer=0,scrollTimer=0,navigating=false;
@@ -11,7 +11,7 @@
   function remember(){if(!navigating)history.replaceState({...history.state,siteScroll:point()},'',location.href);}
   remember();
   function start(){clearTimeout(finishTimer);clearInterval(stepTimer);bar.hidden=false;bar.classList.remove('is-complete');fill.style.transform='scaleX(.12)';let amount=.12;stepTimer=setInterval(()=>{amount+=(.88-amount)*.16;fill.style.transform='scaleX('+amount+')';},180);document.querySelector('#main').setAttribute('aria-busy','true');}
-  function finish(){clearInterval(stepTimer);fill.style.transform='scaleX(1)';bar.classList.add('is-complete');finishTimer=setTimeout(()=>{bar.hidden=true;},320);document.querySelector('#main').removeAttribute('aria-busy');}
+  function finish(){clearInterval(stepTimer);fill.style.transform='scaleX(1)';bar.classList.add('is-complete');finishTimer=setTimeout(()=>{bar.hidden=true;},200);document.querySelector('#main').removeAttribute('aria-busy');}
   function scrollToTarget(url,saved){
     let hash=url.hash.slice(1);try{hash=decodeURIComponent(hash);}catch(_){}
     const anchor=hash&&document.getElementById(hash);
@@ -70,9 +70,10 @@
       });
       metadata(result.doc);current=result.url;
       if(!options.pop)history.pushState({siteScroll:{x:0,y:0}},'',current.href);
-      SitePage.mount({skipEntrance:Boolean(options.pop||current.hash)});
+      root.classList.add('is-page-changing');SitePage.mount();
       scrollToTarget(current,options.scroll);next.setAttribute('tabindex','-1');next.focus({preventScroll:true});
       dispatchEvent(new CustomEvent('site-page',{detail:{url:current.href}}));
+      requestAnimationFrame(()=>root.classList.remove('is-page-changing'));
     }catch(error){
       if(id!==serial)return;
       if(options.pop){location.assign(url.href);return;}
