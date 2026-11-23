@@ -11,9 +11,10 @@
     stars=Array.from({length:compact.matches?26:62},()=>({x:rand(0,width),y:rand(0,height),r:rand(.65,1.7),speed:rand(3,11),phase:rand(0,Math.PI*2)}));
   }
   function stop(){cancelAnimationFrame(frame);frame=0;last=0;}
-  function wake(){if(ctx&&!frame&&!document.hidden&&!reduced.matches&&!document.querySelector('dialog[open]'))frame=requestAnimationFrame(draw);}
+  let modalOpen=Boolean(document.querySelector('dialog[open]'));
+  function wake(){if(ctx&&!frame&&!document.hidden&&!reduced.matches&&!modalOpen)frame=requestAnimationFrame(draw);}
   function draw(now){
-    frame=0;if(document.hidden||reduced.matches||document.querySelector('dialog[open]')){last=0;return;}
+    frame=0;if(document.hidden||reduced.matches||modalOpen){last=0;return;}
     const interval=compact.matches?55:36;if(last&&now-last<interval){wake();return;}
     const dt=last?Math.min((now-last)/1000,.1):0;last=now;time+=dt;
     ctx.clearRect(0,0,width,height);const color=dark?'157,200,255':'37,92,153',alpha=dark?.64:.42;
@@ -55,7 +56,10 @@
   document.addEventListener('click',e=>{if(reduced.matches||!ctx||e.target.closest('input,textarea,select,.home-console,.live2d-widget,.live2d-settings,dialog,[data-live2d-size]'))return;bursts.push({x:e.clientX,y:e.clientY,start:time});if(bursts.length>5)bursts.shift();wake();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else wake();});addEventListener('pagehide',stop);addEventListener('pageshow',state);
   new MutationObserver(state).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  new MutationObserver(()=>{if(document.querySelector('dialog[open]'))stop();else wake();}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
+  new MutationObserver(()=>{
+    modalOpen=Boolean(document.querySelector('dialog[open]'));
+    if(modalOpen)stop();else wake();
+  }).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
   reduced.addEventListener('change',state);window.trackViewportCanvas(canvas,ctx,1.25,resize);resize();state();
 
   const nav=document.querySelector('.main-nav'),indicator=document.createElement('span');indicator.className='nav-tracker';indicator.setAttribute('aria-hidden','true');nav.prepend(indicator);
