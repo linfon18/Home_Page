@@ -14,7 +14,7 @@ const descriptions={
   home:'linfon18 的个人网站。写 C#，维护 MinecraftConnectTool，记录开发、Linux 和 Minecraft 中遇到的问题。',
   about:'关于 linfon18：深圳信息职业技术大学的学生，喜欢 C#、Linux 和 Minecraft，以及一些自己想做的小工具。',
   projects:'linfon18 的项目：MinecraftConnectTool、FastShareYourLog 和 FastMD5。源码、下载与使用说明。',
-  life:'linfon18 的代码之外：Minecraft Java 1.16.5 纯生存服务器和日常玩的游戏。',
+  life:'linfon18 的 Minecraft Java 1.16.5 纯生存服务器、QQ 群和喜欢的游戏。',
   activity:'linfon18 的公开 GitHub 动态、近期更新的仓库与常用编程语言。',
   contact:'通过 GitHub、QQ 交流群或 Bilibili 联系 linfon18，交流 Minecraft 联机、项目问题和日常。',
   articles:'linfon18 的文章：开发、部署与折腾过程中的整理记录。支持全文搜索和 RSS 订阅。',
