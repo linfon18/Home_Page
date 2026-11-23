@@ -42,6 +42,24 @@ with sync_playwright() as p:
           };
           s.set('snow',false);time+=1;s.draw(ctx,0,time,true);
           checks['weather change clears hanging water']=c.dataset.waterPendant==='0.00,0.00'&&c.dataset.waterFlow==='0.00,0.00';
+          const map=document.createElement('div');
+          map.className='home-network';
+          map.style.cssText='position:absolute;left:180px;top:545px;width:600px;height:170px;border-radius:16px';
+          document.body.append(map);
+          dispatchEvent(new Event('site-page'));
+          s.set('rain',false);s.measure();
+          for(let i=0;i<300;i++){
+            const x=195+Math.random()*565;
+            s.collide({x,y:550,size:2},x,530);
+            ctx.clearRect(0,0,1000,800);time+=1/30;s.draw(ctx,1/30,time,true);
+          }
+          checks['map drains independently']=+map.dataset.rainHits>280&&+map.dataset.runoffs>0&&+c.dataset.rainHits===0;
+          map.style.top='520px';s.invalidate();s.measure();
+          checks['moving map intercepts at new edge']=s.collide({x:435,y:525,size:2},435,511);
+          ctx.clearRect(0,0,1000,800);ctx.save();s.clip(ctx);
+          ctx.fillRect(0,0,1000,800);ctx.restore();
+          const alpha=y=>ctx.getImageData(435,y,1,1).data[3];
+          checks['both interiors dry with rain between']=alpha(210)===0&&alpha(505)>0&&alpha(600)===0;
           return {checks,firstDrop:low[firstDrop],lowCount,high:high[high.length-1],dry};
         }''')
         print(json.dumps(result, indent=2))

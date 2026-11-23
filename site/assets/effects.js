@@ -94,7 +94,15 @@
 
   let pageAnimation=null;
   document.addEventListener('site-page-before',()=>{if(pageAnimation)pageAnimation.cancel();});
-  addEventListener('site-page',()=>{const main=document.querySelector('#main');if(!main.hasAttribute('data-title-transfer')&&document.documentElement.dataset.homeVisit!=='return'&&!reduced.matches&&main.animate)pageAnimation=main.animate([{opacity:.3,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:420,easing:'cubic-bezier(.16,1,.3,1)'});});
+  addEventListener('site-page',event=>{
+    const main=document.querySelector('#main');
+    if(main.hasAttribute('data-title-transfer')||document.documentElement.dataset.homeVisit==='return'||reduced.matches||!main.animate)return;
+    const offset=(event.detail?.direction||1)*18;
+    pageAnimation=main.animate([
+      {opacity:.45,transform:`translate3d(${offset}px,6px,0)`},
+      {opacity:1,transform:'none'}
+    ],{duration:430,easing:'cubic-bezier(.16,1,.3,1)'});
+  });
   reduced.addEventListener('change',()=>{if(reduced.matches&&pageAnimation)pageAnimation.cancel();});
 
   SitePage.register('motion-scenes',scope=>{
@@ -102,7 +110,9 @@
     const animations=new Set(),seen=new WeakSet();let observer=null;
     function enter(el,delay=0){
       if(seen.has(el)||!el.animate||el.matches('[data-title-transfer] .reading-page>header'))return;seen.add(el);el.classList.add('scene-entered');
-      const animation=el.animate([{opacity:0,transform:'translate3d(0,26px,0) scale(.985)'},{opacity:1,transform:'translate3d(0,0,0) scale(1)'}],{duration:760,delay,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
+      const frames=el.matches('.home-network') ? [{opacity:0},{opacity:1}] :
+        [{opacity:0,transform:'translate3d(0,26px,0) scale(.985)'},{opacity:1,transform:'translate3d(0,0,0) scale(1)'}];
+      const animation=el.animate(frames,{duration:760,delay,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
       animations.add(animation);animation.onfinish=()=>animations.delete(animation);
     }
     const targets=Array.from(document.querySelectorAll('#main .home-project,#main .home-writing>header,#main .home-entry,#main .page-heading,#main .writing-heading,#main .entry-row,#main .contact-card,#main .contact-note,#main .reading-page>header,#main .reading-page .prose>h2,#main .project-feature,#main .game-card,#main .stat-card'));

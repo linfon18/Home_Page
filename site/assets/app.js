@@ -25,7 +25,33 @@
   const themeTrigger = $('[data-theme-trigger]'), themeMenu = $('[data-theme-menu]');
   function closeTheme() { themeMenu.hidden = true; themeTrigger.setAttribute('aria-expanded','false'); }
   themeTrigger.addEventListener('click', () => { themeMenu.hidden = !themeMenu.hidden; themeTrigger.setAttribute('aria-expanded',String(!themeMenu.hidden)); if (!themeMenu.hidden) $('[data-theme-option]',themeMenu).focus(); });
-  $$('[data-theme-option]').forEach(button => button.addEventListener('click', () => { preference = button.dataset.themeOption; storage.set('linfon-theme',preference); applyTheme(); closeTheme(); themeTrigger.focus(); }));
+  let themeReveal = null;
+  $$('[data-theme-option]').forEach(button => button.addEventListener('click', () => {
+    preference = button.dataset.themeOption;
+    storage.set('linfon-theme',preference);
+    closeTheme();
+    themeTrigger.focus({preventScroll:true});
+    const next = preference === 'auto' ? (scheme.matches ? 'dark' : 'light') : preference;
+    if(themeReveal)themeReveal.skipTransition();
+    if(next === root.dataset.theme || reduced.matches || !document.startViewTransition || document.hidden){
+      applyTheme();
+      return;
+    }
+    const bounds = themeTrigger.getBoundingClientRect();
+    const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
+    const radius = Math.hypot(Math.max(x,innerWidth-x), Math.max(y,innerHeight-y));
+    root.style.setProperty('--theme-origin', `${x}px ${y}px`);
+    root.style.setProperty('--theme-radius', `${Math.ceil(radius)}px`);
+    root.classList.add('theme-reveal');
+    const transition = document.startViewTransition(applyTheme);
+    themeReveal = transition;
+    transition.finished.finally(() => {
+      if(themeReveal !== transition)return;
+      themeReveal = null;
+      root.classList.remove('theme-reveal');
+    });
+  }));
+  reduced.addEventListener('change',()=>{if(reduced.matches&&themeReveal)themeReveal.skipTransition();});
   document.addEventListener('click', e => { if (!e.target.closest('.theme-picker')) closeTheme(); });
   themeMenu.addEventListener('keydown', e => { const opts=$$('[data-theme-option]'); let i=opts.indexOf(document.activeElement); if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();opts[(i+(e.key==='ArrowDown'?1:2))%3].focus();} });
   const menuToggle = $('[data-menu-toggle]'), nav = $('.main-nav');

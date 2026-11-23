@@ -198,6 +198,16 @@ html[data-home-visit=return] .main-home .reveal{opacity:1;transform:none;transit
   @media(hover:hover){:is(.home-entry,.entry-row):hover::after{transform:scale(1)}}
 }
 .reading-toc nav{position:relative}
+@media (prefers-reduced-motion:no-preference) {
+  html.theme-reveal::view-transition-old(root),
+  html.theme-reveal::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  html.theme-reveal::view-transition-new(root) { animation: theme-from-control .46s cubic-bezier(.23,.75,.27,1) both; }
+  html.theme-reveal *, html.theme-reveal *::before, html.theme-reveal *::after { transition-duration: 0s !important; }
+  @keyframes theme-from-control {
+    from { clip-path: circle(16px at var(--theme-origin)); }
+    to { clip-path: circle(var(--theme-radius) at var(--theme-origin)); }
+  }
+}
 .reading-toc a[aria-current=location]{box-shadow:none}
 .chapter-marker{position:absolute;left:0;top:0;width:3px;pointer-events:none;background:var(--blue-soft);border-radius:3px;overflow:hidden}
 .chapter-marker::before{content:"";position:absolute;inset:0;background:var(--blue);transform:scaleY(var(--chapter-progress,0));transform-origin:top}

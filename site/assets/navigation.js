@@ -54,6 +54,10 @@
       const result=await read(url,controller.signal);if(id!==serial)return;
       if(assets(result.doc)!==assets(document)){location.assign(result.url.href);return;}
       const old=document.querySelector('#main'),next=document.importNode(result.doc.querySelector('#main'),true);
+      const links=Array.from(document.querySelectorAll('.main-nav>a'));
+      const from=links.findIndex(link=>link.getAttribute('aria-current')==='page');
+      const to=links.findIndex(link=>link.pathname===result.url.pathname);
+      const direction=from>=0&&to>=0?Math.sign(to-from):options.pop?-1:1;
       document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());document.body.style.overflow='';
       document.querySelector('[data-theme-menu]').hidden=true;
       document.querySelector('[data-theme-trigger]').setAttribute('aria-expanded','false');
@@ -70,7 +74,10 @@
         }
       }
       document.dispatchEvent(new CustomEvent('site-page-before'));
-      SitePage.dispose();window.prepareHomeMotion(result.doc.body.dataset.page);old.replaceWith(next);
+      SitePage.dispose();
+      if(result.doc.body.dataset.page==='home')root.dataset.homeVisit='return';
+      else delete root.dataset.homeVisit;
+      old.replaceWith(next);
       document.body.dataset.page=result.doc.body.dataset.page;document.body.dataset.github=result.doc.body.dataset.github;
       const signature=document.querySelector('.footer-signature');signature.replaceChildren(...Array.from(result.doc.querySelector('.footer-signature').childNodes).map(n=>document.importNode(n,true)));
       document.querySelector('.site-footer>div').className=result.doc.querySelector('.site-footer>div').className;
@@ -89,7 +96,7 @@
         heading.animate([{transform:from,transformOrigin:'top left'},{transform:'none',transformOrigin:'top left'}],
           {duration:480,easing:'cubic-bezier(.2,.78,.22,1)'});
       }
-      dispatchEvent(new CustomEvent('site-page',{detail:{url:current.href}}));
+      dispatchEvent(new CustomEvent('site-page',{detail:{url:current.href,direction}}));
       requestAnimationFrame(()=>root.classList.remove('is-page-changing'));
     }catch(error){
       if(id!==serial)return;

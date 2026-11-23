@@ -23,13 +23,19 @@
 }
 
 .home-stage .home-console {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: clamp(320px, 49vh, 464px);
   box-sizing: border-box;
 }
 
-.home-stage .linux-screen { flex: 1 1 auto; }
+.home-stage .linux-screen { min-height: 0; height: 100%; }
+.home-stage:has(.home-network.is-expanded) .home-console { height: clamp(418px, 66vh, 650px); }
+@media (prefers-reduced-motion:no-preference) {
+  .home-stage .home-console, .home-stage .home-network-viewport {
+    transition: height .48s cubic-bezier(.22,.82,.23,1);
+  }
+}
 .home-stage .home-social { margin-top: 22px; }
 .home-stage .home-avatar { margin-block: 19px 14px; }
 .home-stage .home-name h1 {
@@ -42,10 +48,6 @@
 .home-stage .home-buttons { margin-top: 20px; }
 .home-stage .home-name > p::after { animation: none; }
 .home-stage .home-profile > :is(.home-avatar,.home-name,.home-intro,.home-buttons,.home-social) { animation: none; }
-
-@media (min-width: 681px) {
-  .home-stage .linux-screen { height: auto; min-height: 326px; }
-}
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .main-home .home-profile::after {
@@ -120,6 +122,17 @@ body[data-page="home"] {
 }
 .home-network-link .icon { width: 15px; height: 15px; color: #a2d8ee; }
 .home-network-link:hover { color: #a2e5ff; }
+.home-network .home-network-toggle { order: 1; margin-left: auto; }
+.home-network .home-network-toggle .icon { transition: rotate .25s; }
+.home-network.is-expanded .home-network-toggle .icon { rotate: 180deg; }
+.home-network:not(.is-expanded) :is(.home-network-controls,.home-network-action,.home-network-caption) { display: none; }
+.home-network:not(.is-expanded) .home-network-viewport { height: 106px; }
+.main-home .home-network:not(.is-expanded) canvas { cursor: default; touch-action: auto; }
+@media(min-width:681px){
+  .home-stage:not(:has(.home-network.is-expanded)) .home-profile { grid-row: 1 / 3; }
+  .main-home .home-network:not(.is-expanded) { grid-column: 2; align-self:start; }
+}
+@media(prefers-reduced-motion:reduce){.home-network .home-network-toggle .icon { transition:none; }}
 .home-network-icon { position: relative; display: grid; place-items: center; width: 32px; height: 32px; }
 .home-network-icon > .icon { width: 22px; height: 22px; }
 .home-network-icon > img { position: absolute; inset: 0; background: #08151f; }

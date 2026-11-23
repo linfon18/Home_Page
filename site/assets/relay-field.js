@@ -8,6 +8,8 @@ SitePage.register('relay-field', scope => {
   const description = section.querySelector('[data-relay-description]');
   const hint = section.querySelector('[data-relay-hint]');
   const send = section.querySelector('[data-relay-send]');
+  const toggle = section.querySelector('.home-network-toggle');
+  let expanded = false;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const logo = section.querySelector('.mct-home-icon');
   const showLogo = () => { if (logo.naturalWidth) logo.hidden = false; };
@@ -42,7 +44,7 @@ SitePage.register('relay-field', scope => {
   const camera = { yaw: -.10, pitch: .08, xVelocity: 0, yVelocity: 0, xGoal: -.10, yGoal: .08 };
   let mode = 'direct', width = 0, height = 0, frame = 0, previous = 0;
   let burst = null, morph = null, wave = null, drag = null, visible = false;
-  let entrance = null, first = true;
+  let entrance = null, first = document.documentElement.dataset.homeVisit === 'first';
   let now = 0, sin, cos, pitch, scale, relief, backdrop;
 
   const tip = (x, z) => {
@@ -55,7 +57,7 @@ SitePage.register('relay-field', scope => {
     const x = point.x * cos - point.z * sin * .73;
     const z = point.x * sin + point.z * cos * .73;
     const depth = 3.1 / (3.1 - z * .65);
-    point.sx = width * .5 + x * scale * depth;
+    point.sx = width * .5 + x * (expanded ? scale : width * .40) * depth;
     point.sy = height * .57 + (z * pitch - point.y * relief) * scale * depth;
     return point;
   }
@@ -257,8 +259,8 @@ SitePage.register('relay-field', scope => {
     camera.yGoal = camera.pitch = .08;
   }
   function syncMotionControls() {
-    hint.hidden = reduce.matches;
-    canvas.tabIndex = reduce.matches ? -1 : 0;
+    hint.hidden = reduce.matches || !expanded;
+    canvas.tabIndex = reduce.matches || !expanded ? -1 : 0;
     canvas.setAttribute('aria-label', reduce.matches ? '联机路线示意图' : '联机路线示意图，方向键旋转，Home 重置视角');
   }
   scope.on(controls, 'click', event => {
@@ -266,14 +268,25 @@ SitePage.register('relay-field', scope => {
     if (button) select(button.dataset.relay, true);
   });
   scope.on(send, 'click', exchange);
+  toggle.hidden = false;
+  scope.on(toggle, 'click', () => {
+    expanded = !expanded;
+    section.classList.toggle('is-expanded', expanded);
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.title = expanded ? '收起传输图' : '展开传输图';
+    toggle.setAttribute('aria-label', toggle.title);
+    park(); syncMotionControls(); resize();
+    if (expanded) exchange();
+    dispatchEvent(new Event('site-viewport'));
+  });
   scope.on(canvas, 'pointerdown', event => {
-    if (reduce.matches || !event.isPrimary || event.button !== 0) return;
+    if (!expanded || reduce.matches || !event.isPrimary || event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw: camera.yaw, pitch: camera.pitch };
     viewport.classList.add('is-dragging');
   });
   scope.on(canvas, 'pointermove', event => {
-    if (reduce.matches) return;
+    if (!expanded || reduce.matches) return;
     if (drag?.id === event.pointerId) {
       camera.xGoal = clamp(drag.yaw + (event.clientX - drag.x) * .0045, -.66, .66);
       camera.yGoal = clamp(drag.pitch + (event.clientY - drag.y) * .0035, -.14, .22);

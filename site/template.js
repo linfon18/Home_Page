@@ -50,13 +50,14 @@ function home(c,entries){return `<section class="home-stage" aria-labelledby="ho
   <section class="home-project home-network" aria-labelledby="home-project-title">
     <header class="home-network-header">
       <a href="/projects/" class="home-network-link"><span class="home-network-icon" aria-hidden="true">${i('cube')}<img class="mct-home-icon" src="https://mct.loft.games/assets/favicon.ico" width="32" height="32" alt="" hidden></span><h2 id="home-project-title">MinecraftConnectTool</h2>${i('arrow')}</a>
+      <button type="button" class="home-network-toggle" aria-label="展开传输图" title="展开传输图" aria-expanded="false" aria-controls="home-network-map" hidden>${i('down')}</button>
       <div class="home-network-controls" role="group" aria-label="联机路线" hidden>
         <button type="button" data-relay="direct" aria-pressed="true">OpenP2P</button>
         <button type="button" data-relay="relay" aria-pressed="false">Link</button>
         <button type="button" data-relay="mesh" aria-pressed="false">EasyTier</button>
       </div>
     </header>
-    <div class="home-network-viewport" hidden>
+    <div class="home-network-viewport" id="home-network-map" hidden>
       <canvas class="relay-field" aria-label="联机路线示意图"></canvas>
       <div class="home-network-action"><button type="button" data-relay-send aria-label="发送一组演示数据包">发包 ${i('right')}</button></div>
     </div>
@@ -72,16 +73,14 @@ module.exports=function render(route,c,introduction,notes=[],note=null){
   const githubUsername=new URL(c.github_url).pathname.split('/').filter(Boolean)[0];
   return `<!doctype html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark">${seo(route,c,names[route],pagePath,note)}<meta name="theme-color" content="#eef2f8"><link rel="icon" type="image/svg+xml" href="/assets/favicon.svg"><link rel="apple-touch-icon" href="/assets/avatar-source.jpg"><script>try{var t=localStorage.getItem('linfon-theme')||'auto';document.documentElement.dataset.theme=t==='auto'?(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):t;document.documentElement.dataset.themePreference=t}catch(e){document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}</script><script>
 (() => {
-  let visited = false;
-  window.prepareHomeMotion = page => {
-    const root = document.documentElement;
-    if (page !== 'home') { delete root.dataset.homeVisit; return; }
-    try { visited = visited || sessionStorage.getItem('linfon-home-visited') === '1'; } catch (_) {}
-    root.dataset.homeVisit = visited ? 'return' : 'first';
-    visited = true;
-    try { sessionStorage.setItem('linfon-home-visited', '1'); } catch (_) {}
-  };
-  prepareHomeMotion(${JSON.stringify(route)});
+  if (${JSON.stringify(route)} !== 'home') return;
+  const root = document.documentElement;
+  const navigation = performance.getEntriesByType('navigation')[0];
+  const internal = document.referrer && new URL(document.referrer).origin === location.origin;
+  root.dataset.homeVisit = (!navigation || navigation.type === 'navigate') && !internal && !location.hash ? 'first' : 'return';
+  addEventListener('pagehide', () => {
+    if (document.body.dataset.page === 'home') root.dataset.homeVisit = 'return';
+  });
 })();
 </script><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/design.css"><link rel="stylesheet" href="/assets/experience.css"><link rel="stylesheet" href="/assets/effects.css"><link rel="stylesheet" href="/assets/live2d.css"><link rel="stylesheet" href="/assets/weather.css"><link rel="stylesheet" href="/assets/catastrophe.css"><link rel="stylesheet" href="/assets/home-network.css">
 <script defer src="/assets/page.js"></script>

@@ -15,10 +15,19 @@
       opening.forEach(animation => animation.cancel());
       opening = [];
     }
-    if (document.documentElement.dataset.homeVisit === 'first' && !reduce.matches && !document.hidden && !location.hash && photo.animate) {
+    let pending = document.documentElement.dataset.homeVisit === 'first' && !reduce.matches;
+    function startOpening() {
+      if (!pending || document.hidden) return;
+      pending = false;
+      if (document.documentElement.dataset.homeVisit !== 'first' || reduce.matches || !photo.animate) return;
       const play = (el, frames, delay, duration) => {
         opening.push(el.animate(frames, { delay, duration, easing: 'cubic-bezier(.2,.78,.25,1)', fill: 'backwards' }));
       };
+      play(panel, [{ opacity: 0 }, { opacity: 1 }], 0, 520);
+      const consolePanel = document.querySelector('.home-console');
+      if (consolePanel) play(consolePanel, [
+        { clipPath: 'inset(0 0 100% 0 round 18px)' }, { clipPath: 'inset(0 0 0 0 round 18px)' }
+      ], 90, 750);
       play(photo, [{ clipPath: 'inset(0 100% 0 0 round 25px)', scale: '1.08' },
         { clipPath: 'inset(0 0 0 0 round 25px)', scale: '1' }], 0, 680);
       letters.forEach(({ el }, index) => play(el, [
@@ -32,6 +41,7 @@
         { clipPath: 'inset(0 0 0 0)', opacity: 1 }
       ], 100 + index * 66, 490));
     }
+    startOpening();
 
     // A damped string: each glyph has mass, a rest position and two neighbours.
     // Integrate in small steps so a slow frame cannot launch the letters offscreen.
@@ -113,8 +123,12 @@
     scope.on(window, 'scroll', reset, { passive: true });
     scope.on(window, 'blur', reset);
     scope.on(window, 'pointerdown', stopOpening, { capture: true });
-    scope.on(window, 'focusin', stopOpening);
-    scope.on(document, 'visibilitychange', reset);
+    scope.on(window, 'keydown', stopOpening);
+    scope.on(document, 'visibilitychange', () => {
+      if (document.hidden) reset();
+      else startOpening();
+    });
+    scope.on(window, 'pagehide', () => { pending = false; reset(); });
     scope.on(reduce, 'change', reset);
     scope.cleanup(reset);
   });
