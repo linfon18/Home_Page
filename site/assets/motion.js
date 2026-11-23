@@ -43,7 +43,9 @@
       if(Math.abs(ox-el._mx)+Math.abs(oy-el._my)>.015)magneticMoving=true;
       const translation=el._mx.toFixed(2)+'px '+el._my.toFixed(2)+'px';if(el.style.translate!==translation)el.style.translate=translation;
     });
-    const sx=visible?(x/innerWidth-.5)*-10:0,sy=(visible?(y/innerHeight-.5)*-8:0)+Math.min(scrollY,700)*.004;
+    const home=document.body.dataset.page==='home';
+    const sx=visible?(x/innerWidth-.5)*(home?-28:-10):0;
+    const sy=(visible?(y/innerHeight-.5)*(home?-20:-8):0)+Math.min(scrollY,700)*(home?.015:.004);
     sceneX=lerp(sceneX,sx,.045);sceneY=lerp(sceneY,sy,.045);
     if(wallpaper)wallpaper.style.transform='translate3d('+sceneX.toFixed(3)+'px,'+sceneY.toFixed(3)+'px,0) scale(1.045)';
     const unsettled=Math.abs(rx-tx)+Math.abs(ry-ty)+Math.abs(rw-tw)+Math.abs(rh-th)+Math.abs(sceneX-sx)+Math.abs(sceneY-sy);

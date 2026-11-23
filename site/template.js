@@ -46,10 +46,24 @@ function home(c,entries){return `<section class="home-stage" aria-labelledby="ho
       <div class="linux-screen" data-linux-screen role="group" tabindex="0" aria-label="Linux 终端"><div class="linux-scrollback" data-linux-lines><div class="linux-line linux-muted">Debian GNU/Linux · x86_64</div><div class="linux-line"><span class="linux-user">linfon18@debian</span>:<span class="linux-path">~/scratch/netprobe</span>$ gcc -Wall -g -O0 probe.c -o build/probe<span class="linux-caret"> </span></div></div><div class="linux-editor" data-linux-editor hidden><div class="vim-buffer" data-vim-buffer></div><div class="vim-status"><span data-vim-mode>NORMAL</span><span data-vim-file>probe.c</span><span data-vim-position>1,1</span></div><div class="vim-command" data-vim-command></div></div></div>
       <footer class="console-footer"><span><i aria-hidden="true"></i> Linux · GNU/Bash</span><span class="linux-scene-label" data-linux-scene-label>gcc / gdb / vim</span></footer>
     </section>
-    <a class="home-project pane" href="/projects/"><img class="mct-home-icon" src="https://mct.loft.games/assets/favicon.ico" width="48" height="48" alt=""><div><span>我在维护</span><h2>MinecraftConnectTool</h2><p>和朋友联机时用的 Minecraft 工具。</p></div><span class="project-signal" aria-hidden="true"><i></i><b></b><i></i></span>${i('arrow')}<canvas class="relay-field" width="480" height="116" aria-hidden="true"></canvas></a>
   </div>
+  <section class="home-project home-network" aria-labelledby="home-project-title">
+    <header class="home-network-header">
+      <a href="/projects/" class="home-network-link"><span class="home-network-icon" aria-hidden="true">${i('cube')}<img class="mct-home-icon" src="https://mct.loft.games/assets/favicon.ico" width="32" height="32" alt="" hidden></span><h2 id="home-project-title">MinecraftConnectTool</h2>${i('arrow')}</a>
+      <div class="home-network-controls" role="group" aria-label="联机路线" hidden>
+        <button type="button" data-relay="direct" aria-pressed="true">OpenP2P</button>
+        <button type="button" data-relay="relay" aria-pressed="false">Link</button>
+        <button type="button" data-relay="mesh" aria-pressed="false">EasyTier</button>
+      </div>
+    </header>
+    <div class="home-network-viewport" hidden>
+      <canvas class="relay-field" aria-label="联机路线示意图"></canvas>
+      <div class="home-network-action"><button type="button" data-relay-send aria-label="发送一组演示数据包">发包 ${i('right')}</button></div>
+    </div>
+    <footer class="home-network-caption"><p data-relay-description>和朋友联机时用的 Minecraft 工具。</p><span data-relay-hint hidden>拖动切换视角</span></footer>
+  </section>
 </section>
-<section class="home-writing" aria-labelledby="recent-title"><header><div><span class="section-kicker">留点记录</span><h2 id="recent-title">最近更新</h2></div><div><a href="/articles/">文章 ${i('right')}</a><a href="/notes/">笔记 ${i('right')}</a></div></header><div class="home-entries">${entries.slice(0,2).map(n=>`<a class="home-entry pane reveal" href="${e(n.url)}"><div class="home-entry-meta"><span>${n.type==='posts'?'文章':'笔记'} / ${e(n.category)}</span><span>${n.minutes} 分钟${n.date?' · '+e(n.date):''}</span></div><h3>${e(n.title)} ${i('arrow')}</h3><p>${e(n.description)}</p><div class="home-entry-tags">${n.tags.slice(0,3).map(t=>'<span># '+e(t)+'</span>').join('')}</div></a>`).join('')}</div></section>`;}
+<section class="home-writing" aria-labelledby="recent-title"><header><h2 id="recent-title">最近更新</h2><div><a href="/articles/">文章 ${i('right')}</a><a href="/notes/">笔记 ${i('right')}</a></div></header><div class="home-entries">${entries.slice(0,2).map(n=>`<a class="home-entry pane reveal" href="${e(n.url)}"><div class="home-entry-meta"><span>${n.type==='posts'?'文章':'笔记'} / ${e(n.category)}</span><span>${n.minutes} 分钟${n.date?' · '+e(n.date):''}</span></div><h3>${e(n.title)} ${i('arrow')}</h3><p>${e(n.description)}</p><div class="home-entry-tags">${n.tags.slice(0,3).map(t=>'<span># '+e(t)+'</span>').join('')}</div></a>`).join('')}</div></section>`;}
 module.exports=function render(route,c,introduction,notes=[],note=null){
   const names={home:'首页',articles:'文章',about:'本人简介',projects:'项目',life:'日常',activity:'GitHub 动态',contact:'联系我',notes:'笔记',note:note?note.title:'记录','404':'404'};
   const views={home:()=>home(c,notes),about:()=>about(c,introduction),projects:()=>projects(c),life:()=>life(c),activity:()=>activity(c),contact:()=>contact(c),articles:()=>publishing.index(notes,'posts'),notes:()=>publishing.index(notes,'notes'),note:()=>publishing.detail(note),'404':()=>heading('404 / 没找到这页','链接可能变了。回首页看看吧。')+button('/','回首页 '+i('right'))};
@@ -69,7 +83,7 @@ module.exports=function render(route,c,introduction,notes=[],note=null){
   };
   prepareHomeMotion(${JSON.stringify(route)});
 })();
-</script><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/design.css"><link rel="stylesheet" href="/assets/experience.css"><link rel="stylesheet" href="/assets/effects.css"><link rel="stylesheet" href="/assets/live2d.css"><link rel="stylesheet" href="/assets/weather.css"><link rel="stylesheet" href="/assets/catastrophe.css">
+</script><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/design.css"><link rel="stylesheet" href="/assets/experience.css"><link rel="stylesheet" href="/assets/effects.css"><link rel="stylesheet" href="/assets/live2d.css"><link rel="stylesheet" href="/assets/weather.css"><link rel="stylesheet" href="/assets/catastrophe.css"><link rel="stylesheet" href="/assets/home-network.css">
 <script defer src="/assets/page.js"></script>
 <script defer src="/assets/daily-wallpaper.js"></script>
 <script defer src="/assets/nav-motion.js"></script>

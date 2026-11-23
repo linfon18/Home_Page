@@ -12,8 +12,24 @@
     if(!matches.length){message('没有找到，换个关键词试试。');return;}
     matches.forEach(n=>{const a=document.createElement('a'),meta=document.createElement('small'),title=document.createElement('strong'),desc=document.createElement('span');a.href=n.url;meta.textContent=(n.type==='posts'?'文章':'笔记')+' / '+n.category;title.textContent=n.title;desc.textContent=n.description;a.append(meta,title,desc);results.append(a);});
   }
+  function reveal(trigger){
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const surface=dialog.querySelector('.search-surface');
+    if(!surface.animate)return;
+    const bounds=surface.getBoundingClientRect();
+    const anchor=trigger?.matches?.('[data-search-open]')?trigger.getBoundingClientRect():null;
+    const x=anchor?Math.max(0,Math.min(bounds.width,anchor.x+anchor.width/2-bounds.x)):bounds.width/2;
+    const y=anchor?Math.max(0,Math.min(bounds.height,anchor.y+anchor.height/2-bounds.y)):0;
+    const origin=`${x}px ${y}px`;
+    const radius=Math.hypot(bounds.width,innerHeight);
+    const animation=surface.animate([
+      {clipPath:`circle(14px at ${origin})`,opacity:.65},
+      {clipPath:`circle(${radius}px at ${origin})`,opacity:1}
+    ],{duration:460,easing:'cubic-bezier(.18,.82,.24,1)'});
+    dialog.addEventListener('close',()=>animation.cancel(),{once:true});
+  }
   async function open(trigger){
-    if(dialog.open)return;opener=trigger;dialog.showModal();input.focus();
+    if(dialog.open)return;opener=trigger;dialog.showModal();input.focus();reveal(trigger);
     if(index){render();return;}
     message('正在读取索引…');
     if(!loading)loading=fetch('/assets/search-index.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{index=data;}).catch(()=>{loading=null;message('索引暂时无法读取，请稍后再试。');});
