@@ -115,7 +115,7 @@
       const animation=el.animate(frames,{duration:760,delay,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
       animations.add(animation);animation.onfinish=()=>animations.delete(animation);
     }
-    const targets=Array.from(document.querySelectorAll('#main .home-project,#main .home-writing>header,#main .home-entry,#main .page-heading,#main .writing-heading,#main .entry-row,#main .contact-card,#main .contact-note,#main .reading-page>header,#main .reading-page .prose>h2,#main .project-feature,#main .game-card,#main .stat-card'));
+    const targets=Array.from(document.querySelectorAll('#main .home-network,#main .home-writing>header,#main .home-entry,#main .page-heading,#main .writing-heading,#main .entry-row,#main .contact-card,#main .contact-note,#main .reading-page>header,#main .reading-page .prose>h2,#main .project-feature,#main .game-card,#main .stat-card'));
     if('IntersectionObserver' in window){observer=new IntersectionObserver(entries=>{let order=0;for(const entry of entries)if(entry.isIntersecting){enter(entry.target,(order++%5)*85);observer.unobserve(entry.target);}},{threshold:.12});targets.forEach(el=>observer.observe(el));}
     else targets.forEach(el=>enter(el));
     function clear(){if(observer)observer.disconnect();animations.forEach(a=>a.cancel());animations.clear();}

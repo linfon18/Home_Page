@@ -31,6 +31,10 @@
 
 .home-stage .linux-screen { min-height: 0; height: 100%; }
 .home-stage:has(.home-network.is-expanded) .home-console { height: clamp(418px, 66vh, 650px); }
+@media (min-width:681px) {
+  .home-stage:has(.home-network.is-expanded) .home-side { contain: size; container-type: size; }
+  .home-stage:has(.home-network.is-expanded) .home-console { height: 100cqh; }
+}
 @media (prefers-reduced-motion:no-preference) {
   .home-stage .home-console, .home-stage .home-network-viewport {
     transition: height .48s cubic-bezier(.22,.82,.23,1);
@@ -85,6 +89,11 @@ body[data-page="home"] {
 
 .main-home .home-network {
   grid-column: 1 / -1;
+  position: relative;
+  min-width: 0;
+  border-radius: 22px;
+}
+.main-home .home-network.is-expanded {
   display: block;
   overflow: hidden;
   padding: 0;
@@ -125,9 +134,21 @@ body[data-page="home"] {
 .home-network .home-network-toggle { order: 1; margin-left: auto; }
 .home-network .home-network-toggle .icon { transition: rotate .25s; }
 .home-network.is-expanded .home-network-toggle .icon { rotate: 180deg; }
-.home-network:not(.is-expanded) :is(.home-network-controls,.home-network-action,.home-network-caption) { display: none; }
-.home-network:not(.is-expanded) .home-network-viewport { height: 106px; }
-.main-home .home-network:not(.is-expanded) canvas { cursor: default; touch-action: auto; }
+.main-home .home-project-preview { margin: 0; }
+.home-network.is-expanded .home-project-preview,
+.home-network:not(.is-expanded) :is(.home-network-link,.home-network-controls,.home-network-viewport,.home-network-caption) { display: none; }
+.home-network:not(.is-expanded) .home-network-header { display: contents; }
+.home-network:not(.is-expanded) .home-network-toggle {
+  position: absolute;
+  inset: auto auto 10px 10px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--pane-strong);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.home-network:not(.is-expanded) :focus-visible { outline-color: var(--blue); }
 @media(min-width:681px){
   .home-stage:not(:has(.home-network.is-expanded)) .home-profile { grid-row: 1 / 3; }
   .main-home .home-network:not(.is-expanded) { grid-column: 2; align-self:start; }
@@ -136,7 +157,10 @@ body[data-page="home"] {
 .home-network-icon { position: relative; display: grid; place-items: center; width: 32px; height: 32px; }
 .home-network-icon > .icon { width: 22px; height: 22px; }
 .home-network-icon > img { position: absolute; inset: 0; background: #08151f; }
-.home-network .mct-home-icon { width: 32px; height: 32px; object-fit: contain; }
+.home-network-icon .mct-home-icon { width: 32px; height: 32px; object-fit: contain; }
+.home-project-preview .home-network-icon,
+.home-project-preview .mct-home-icon { width: 48px; height: 48px; background: transparent; }
+.home-network-icon:has(img:not([hidden])) > .icon { visibility: hidden; }
 
 .home-network-controls {
   display: flex;
@@ -170,7 +194,7 @@ body[data-page="home"] {
   border-block: 1px solid #42688170;
   background: #091825;
 }
-.main-home .home-network .relay-field {
+.main-home .home-network-viewport .relay-field {
   position: absolute;
   inset: 0;
   display: block;

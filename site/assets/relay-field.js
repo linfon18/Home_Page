@@ -1,5 +1,5 @@
 SitePage.register('relay-field', scope => {
-  const canvas = document.querySelector('.home-network canvas');
+  const canvas = document.querySelector('.home-network-viewport canvas');
   const ctx = canvas?.getContext('2d');
   if (!ctx) return;
   const viewport = canvas.parentElement;
@@ -11,10 +11,11 @@ SitePage.register('relay-field', scope => {
   const toggle = section.querySelector('.home-network-toggle');
   let expanded = false;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const logo = section.querySelector('.mct-home-icon');
-  const showLogo = () => { if (logo.naturalWidth) logo.hidden = false; };
-  scope.on(logo, 'load', showLogo);
-  showLogo();
+  for (const logo of section.querySelectorAll('.home-network-icon img')) {
+    const showLogo = () => { if (logo.naturalWidth) logo.hidden = false; };
+    scope.on(logo, 'load', showLogo);
+    showLogo();
+  }
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const nodes = {
     host: [-.79, .26, '房主'],
