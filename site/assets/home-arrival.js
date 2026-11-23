@@ -1,108 +1,93 @@
 (() => {
   'use strict';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const clamp = value => Math.max(0, Math.min(1, value));
-  const mix = (a,b,t) => a + (b-a)*t;
 
   SitePage.register('home-arrival', scope => {
-    const card = document.querySelector('.home-profile');
-    if (!card || reduce.matches || document.hidden || location.hash || scrollY > innerHeight) return;
-    const avatar = card.querySelector('.home-avatar');
-    const canvas = document.createElement('canvas');
-    canvas.className = 'arrival-trails';
-    canvas.setAttribute('aria-hidden','true');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    document.body.append(canvas);
-    const width = innerWidth, height = innerHeight;
-    const ratio = Math.min(devicePixelRatio || 1, 1.5);
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
-    ctx.scale(ratio,ratio);
-    const rect = avatar.getBoundingClientRect();
-    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
-    const wallpaper = document.querySelector('.wallpaper');
-    if (wallpaper) {
-      wallpaper.style.setProperty('--exposure-x',`${100 * cx / width}%`);
-      wallpaper.style.setProperty('--exposure-y',`${100 * cy / height}%`);
-      wallpaper.classList.add('opening-exposure');
+    const title = document.querySelector('#home-name');
+    if (!title) return;
+    const letters = Array.from(title.querySelectorAll('.name-type i'), el => ({ el, y: 0, v: 0, target: 0 }));
+    const photo = document.querySelector('.home-avatar img');
+    let frame = 0, last = 0, opening = [], pressed = false;
+
+    function stopOpening() {
+      opening.forEach(animation => animation.cancel());
+      opening = [];
     }
-    const r = rect.width/2 + 7;
-    const dark = document.documentElement.dataset.theme === 'dark';
-    const colors = dark ? ['#b3edff','#ffdeb6','#a9bcff'] : ['#117daa','#b76419','#425ac2'];
-    const paths = [
-      {from:[-.03*width,.8*height],c1:[.02*width,.22*height],c2:[cx+120,cy+135],angle:2.4},
-      {from:[width*.82,-12],c1:[width*.63,.36*height],c2:[cx-60,cy-105],angle:-.9},
-      {from:[width*1.02,height*.76],c1:[width*.59,height*.84],c2:[cx+220,cy-108],angle:.3}
-    ];
-    function point(path,t) {
-      const q=1-t, endX=cx+Math.cos(path.angle)*r, endY=cy+Math.sin(path.angle)*r;
-      return [q*q*q*path.from[0]+3*q*q*t*path.c1[0]+3*q*t*t*path.c2[0]+t*t*t*endX,
-        q*q*q*path.from[1]+3*q*q*t*path.c1[1]+3*q*t*t*path.c2[1]+t*t*t*endY];
+    if (!reduce.matches && !document.hidden && !location.hash && scrollY < innerHeight && photo.animate) {
+      const play = (el, frames, delay, duration) => {
+        opening.push(el.animate(frames, { delay, duration, easing: 'cubic-bezier(.2,.78,.25,1)', fill: 'backwards' }));
+      };
+      play(photo, [{ clipPath: 'circle(4% at 50% 50%)', scale: '1.12' },
+        { clipPath: 'circle(73% at 50% 50%)', scale: '1' }], 0, 740);
+      letters.forEach(({ el }, index) => play(el, [
+        { transform: 'perspective(270px) translateY(.48em) rotateX(-76deg)', opacity: 0 },
+        { transform: 'perspective(270px) translateY(-.06em) rotateX(7deg)', opacity: 1, offset: .72 },
+        { transform: 'none', opacity: 1 }
+      ], 95 + index * 43, 540));
     }
-    function trail(path,progress,color) {
-      const head=1-(1-progress)**1.7;
-      const tail=clamp(head-.25*Math.sin(progress*Math.PI));
-      const first=point(path,tail), tip=point(path,head);
-      const gradient=ctx.createLinearGradient(...first,...tip);
-      gradient.addColorStop(0,color+'00');
-      gradient.addColorStop(.65,color+'a0');
-      gradient.addColorStop(1,color);
-      ctx.strokeStyle=gradient;
-      ctx.beginPath();ctx.moveTo(...first);
-      for(let k=1;k<=18;k++) ctx.lineTo(...point(path,mix(tail,head,k/18)));
-      ctx.lineWidth=7;ctx.globalAlpha=.23;ctx.stroke();
-      ctx.lineWidth=1.65;ctx.globalAlpha=.94;ctx.stroke();
-      ctx.strokeStyle=dark?'#ecfaff':'#fff8e2';ctx.lineWidth=.65;ctx.stroke();
-      ctx.fillStyle=color;ctx.beginPath();ctx.arc(...tip,2.7,0,Math.PI*2);ctx.fill();
-      for(let k=1;k<=6;k++){
-        const f=k/7, p=point(path,mix(head,tail,f));
-        const drift=Math.sin(f*11+path.angle)*7*f;
-        ctx.globalAlpha=(1-f)*.8;
-        ctx.beginPath();ctx.arc(p[0]+drift,p[1]+f*8,1.65-f,0,Math.PI*2);ctx.fill();
+
+    // A damped string: each glyph has mass, a rest position and two neighbours.
+    // Integrate in small steps so a slow frame cannot launch the letters offscreen.
+    function step(now) {
+      frame = 0;
+      const elapsed = last ? Math.min((now - last) / 1000, .04) : 1 / 60;
+      last = now;
+      const steps = Math.max(1, Math.ceil(elapsed * 120)), dt = elapsed / steps;
+      for (let n = 0; n < steps; n++) {
+        letters.forEach((l, i) => {
+          const left = i ? letters[i - 1].y : l.y;
+          const right = i + 1 < letters.length ? letters[i + 1].y : l.y;
+          l.v += ((l.target - l.y) * 270 + (left + right - 2 * l.y) * 75 - 17 * l.v) * dt;
+        });
+        letters.forEach(l => { l.y += l.v * dt; });
       }
-      ctx.globalAlpha=1;
-    }
-    const animations=[];
-    function enter(el,keyframes,delay,duration){
-      if(el?.animate) animations.push(el.animate(keyframes,{delay,duration,fill:'backwards',easing:'cubic-bezier(.2,.75,.22,1)'}));
-    }
-    enter(avatar,[{scale:'.82',rotate:'-7deg'},{scale:'1.09',rotate:'2deg',offset:.65},{scale:'1',rotate:'0deg'}],170,870);
-    enter(card.querySelector('h1'),[{clipPath:'inset(0 100% 0 0)',translate:'-12px 0'},{clipPath:'inset(0 0 0 0)',translate:'0 0'}],230,650);
-    enter(card.querySelector('.home-intro'),[{opacity:.15,translate:'0 14px'},{opacity:1,translate:'0 0'}],380,540);
-    let frame=0, started;
-    function finish() {
-      cancelAnimationFrame(frame);
-      canvas.remove();
-      wallpaper?.classList.remove('opening-exposure');
-      animations.forEach(a=>a.cancel());
-    }
-    function draw(now) {
-      if(started===undefined)started=now;
-      const time=now-started;
-      if(time>=1600 || document.hidden || reduce.matches){finish();return;}
-      ctx.clearRect(0,0,width,height);
-      paths.forEach((path,index)=>{
-        const t=(time-index*105)/795;
-        if(t>0 && t<1) trail(path,t,colors[index]);
+      const busy = letters.some(l => Math.abs(l.v) > .15);
+      // Residual displacement from neighbouring letters is expected at rest.
+      letters.forEach((l, i) => {
+        const slope = (letters[Math.min(i + 1, letters.length - 1)].y - letters[Math.max(0, i - 1)].y) * .48;
+        if (!busy && !letters.some(n => n.target)) l.el.style.removeProperty('transform');
+        else l.el.style.transform = `translateY(${l.y.toFixed(2)}px) rotate(${slope.toFixed(2)}deg)`;
       });
-      const bloom=(time-690)/820;
-      if(bloom>0 && bloom<1){
-        ctx.lineWidth=1.5;
-        ctx.globalAlpha=(1-bloom)**1.6;
-        for(let i=0;i<3;i++){
-          const a=paths[i].angle+bloom*.9;
-          ctx.strokeStyle=colors[i];ctx.beginPath();
-          ctx.arc(cx,cy,r+15*(1-(1-bloom)**2),a,a+1.55*bloom+.22);ctx.stroke();
-        }
-      }
-      frame=requestAnimationFrame(draw);
+      if (busy) frame = requestAnimationFrame(step);
+      else last = 0;
     }
-    frame=requestAnimationFrame(draw);
-    scope.on(window,'resize',finish,{once:true});
-    scope.on(window,'scroll',finish,{once:true,passive:true});
-    scope.on(reduce,'change',finish);
-    scope.on(document,'visibilitychange',()=>{if(document.hidden)finish();});
-    scope.cleanup(finish);
+    function wake() {
+      if (!frame) frame = requestAnimationFrame(step);
+    }
+    function respond(event) {
+      if (reduce.matches || document.hidden) return;
+      stopOpening();
+      const x = event.clientX - title.getBoundingClientRect().left;
+      const amplitude = pressed ? 16 : -8;
+      letters.forEach(l => {
+        const distance = (x - l.el.offsetLeft - l.el.offsetWidth / 2) / 28;
+        l.target = amplitude * Math.exp(-.5 * distance * distance);
+      });
+      wake();
+    }
+    function release() {
+      pressed = false;
+      if (!letters.some(l => l.target)) return;
+      letters.forEach(l => { l.target = 0; });
+      wake();
+    }
+    function reset() {
+      cancelAnimationFrame(frame);
+      frame = last = 0;
+      pressed = false;
+      stopOpening();
+      letters.forEach(l => { l.target = l.v = l.y = 0; l.el.style.removeProperty('transform'); });
+    }
+    scope.on(title, 'pointermove', respond);
+    scope.on(title, 'pointerdown', e => { pressed = true; respond(e); });
+    scope.on(title, 'pointerleave', release);
+    scope.on(window, 'pointerup', release);
+    scope.on(window, 'pointercancel', release);
+    scope.on(window, 'scroll', reset, { passive: true });
+    scope.on(window, 'blur', reset);
+    scope.on(window, 'pointerdown', stopOpening, { capture: true });
+    scope.on(document, 'visibilitychange', reset);
+    scope.on(reduce, 'change', reset);
+    scope.cleanup(reset);
   });
 })();
