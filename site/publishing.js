@@ -2,9 +2,13 @@
 const {escape:e,icon:i,pills,markdown}=require('./ui');
 const label=type=>type==='posts'?'文章':'笔记';
 const route=type=>type==='posts'?'/articles/':'/notes/';
-function card(n){return `<a class="entry-row" href="${e(n.url)}"><div class="entry-meta"><span>${e(n.category)}</span>${n.date?'<time datetime="'+n.date+'">'+n.date.replace(/-/g,'.')+'</time>':''}<span>${n.minutes} 分钟</span></div><h2>${e(n.title)} ${i('arrow')}</h2><p>${e(n.description)}</p><div class="entry-tags">${n.tags.map(t=>'<span># '+e(t)+'</span>').join('')}</div></a>`;}
+function card(n){
+  const pin = n.pinned ? '<span class="entry-pin">置顶</span>' : '';
+  return `<a class="entry-row" href="${e(n.url)}"><div class="entry-meta">${pin}<span>${e(n.category)}</span>${n.date?'<time datetime="'+n.date+'">'+n.date.replace(/-/g,'.')+'</time>':''}<span>${n.minutes} 分钟</span></div><h2>${e(n.title)} ${i('arrow')}</h2><p>${e(n.description)}</p><div class="entry-tags">${n.tags.map(t=>'<span># '+e(t)+'</span>').join('')}</div></a>`;
+}
 function index(all,type){
   const entries=all.filter(n=>n.type===type),categories=Array.from(new Set(entries.map(n=>n.category)));
+  if(type==='posts')entries.sort((a,b)=>Number(b.pinned===true)-Number(a.pinned===true));
   return `<header class="writing-heading"><div><p class="writing-caption">${type==='posts'?'慢慢写，慢慢整理。':'随手记下，方便下次找到。'}</p><h1>${label(type)}<span>${entries.length.toString().padStart(2,'0')}</span></h1></div><a class="text-link" href="/feed.xml">RSS ${i('arrow')}</a></header>
   <section class="writing-index pane"><div class="writing-toolbar"><div class="note-filters"><button class="is-active" data-note-filter="all" aria-pressed="true">全部</button>${categories.map(c=>'<button data-note-filter="'+e(c)+'" aria-pressed="false">'+e(c)+'</button>').join('')}</div><label class="note-search">${i('search')}<input type="search" data-note-search placeholder="搜一搜${label(type)}" aria-label="搜索${label(type)}"><kbd>/</kbd></label></div><div class="writing-list" data-notes-list>${entries.map(n=>'<div data-note-item data-note-category="'+e(n.category)+'" data-note-text="'+e((n.title+' '+n.description+' '+n.tags.join(' ')+' '+n.body).toLowerCase())+'">'+card(n)+'</div>').join('')}</div><p data-note-empty ${entries.length?'hidden':''} class="empty-state">${entries.length?'没有匹配的内容，换个关键词试试。':'还没有发布内容。'}</p></section>`;
 }

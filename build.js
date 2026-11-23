@@ -33,7 +33,14 @@ for(const type of ['posts','notes']){
     if(!/^[a-z0-9-]+$/.test(slug))throw new Error('Use a lowercase URL-safe filename: '+name);
     if(!meta.title||!meta.description||!meta.category)throw new Error('Missing metadata: '+name);
     for(const field of ['date','updated'])if(meta[field]&&(!/^\d{4}-\d{2}-\d{2}$/.test(meta[field])||!Number.isFinite(Date.parse(meta[field]))||new Date(meta[field]).toISOString().slice(0,10)!==meta[field]))throw new Error('Use a valid YYYY-MM-DD '+field+': '+name);
-    notes.push({slug,type,url:'/'+(type==='posts'?'articles':'notes')+'/'+slug+'/',title:meta.title,description:meta.description,category:meta.category,date:meta.date||'',updated:meta.updated||'',tags:(meta.tags||'').split(',').map(x=>x.trim()).filter(Boolean),body:match[2],minutes:Math.max(1,Math.ceil(match[2].length/500))});
+    notes.push({
+      slug, type, url: '/' + (type === 'posts' ? 'articles' : 'notes') + '/' + slug + '/',
+      title: meta.title, description: meta.description, category: meta.category,
+      date: meta.date || '', updated: meta.updated || '',
+      pinned: type === 'posts' && meta.pinned === 'true',
+      tags: (meta.tags || '').split(',').map(x => x.trim()).filter(Boolean),
+      body: match[2], minutes: Math.max(1, Math.ceil(match[2].length / 500))
+    });
   }
 }
 notes.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||a.slug.localeCompare(b.slug));

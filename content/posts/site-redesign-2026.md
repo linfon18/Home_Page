@@ -4,6 +4,7 @@ description: 从实际源码复盘 Node.js 14 静态构建、玻璃着色器、�
 category: 技术实践
 date: 2026-11-15
 updated: 2026-11-16
+pinned: true
 tags: Node.js, WebGL, JavaScript, Live2D, EdgeOne
 ---
 
