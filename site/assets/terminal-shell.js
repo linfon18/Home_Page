@@ -97,7 +97,7 @@ window.TerminalShell=function(files,options){
     }
     if(!a.length)return {result:status(args.length?0:1,args.length?'':sudoUsage)};
     if(!['root','linfon18'].includes(user))fail('sudo: unknown user '+user);
-    if(['help','cd','export','unset','history','exit'].includes(a[0]))fail('sudo: '+a[0]+': command not found',1);
+    if(['help','cd','export','unset','history','exit','logout'].includes(a[0]))fail('sudo: '+a[0]+': command not found',1);
     return {args:a,user};
   }
   function builtin(cmd,a,stdin){

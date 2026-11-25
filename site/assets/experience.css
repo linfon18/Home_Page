@@ -134,3 +134,63 @@ body[data-page=home] .site-footer{padding-bottom:24px}
 .terminal-input-row.is-capture{position:absolute;left:0;bottom:0;width:1px;height:1px;min-height:0;padding:0;border:0;overflow:hidden;opacity:0;pointer-events:none}.terminal-input-row.is-capture .terminal-input{width:1px;min-width:1px;font-size:16px}.terminal-live-line{font:inherit}
 
 .terminal-program{z-index:5;background:#10151b;color:#d3dedc;pointer-events:none}.terminal-program.linux-train{padding-top:55px}
+.home-console.is-shutting-down { position: relative; border-color: #000; }
+.terminal-power-curtain {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #fff;
+  cursor: default;
+}
+.terminal-power-curtain[hidden],
+.terminal-power-button[hidden],
+.terminal-boot-log[hidden] { display: none; }
+.terminal-power-question {
+  display: none;
+  font: 900 clamp(62px, 10vw, 116px)/1 system-ui, sans-serif;
+}
+.terminal-power-curtain[data-power=question] .terminal-power-question { display: block; }
+.terminal-power-button {
+  border: 1px solid #ffffff50;
+  border-radius: 6px;
+  padding: 10px 18px;
+  background: #161616;
+  color: #fff;
+  font: 600 14px/1.5 Consolas, monospace;
+}
+.terminal-power-button:hover { background: #262626; }
+.terminal-boot-log {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding: clamp(14px, 2vw, 24px);
+  color: #dfe5df;
+  font: clamp(10px, 1vw, 12px)/1.55 "Cascadia Code", Consolas, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.terminal-boot-log > div { min-height: 1.55em; }
+.terminal-boot-log[data-stage=logo] { display: grid; place-items: center; }
+.terminal-boot-log[data-stage=logo][hidden] { display: none; }
+.terminal-boot-title { font-size: clamp(20px, 3vw, 32px); font-weight: 700; color: #fff; }
+.terminal-boot-ok { color: #a3d99a; }
+.terminal-grub-label { text-align: center; margin-block: 10px 15px; }
+.terminal-grub-menu {
+  min-height: clamp(75px, 17vh, 136px) !important;
+  margin-bottom: 12px;
+  padding: 1px;
+  border: 1px solid #9599a1;
+}
+.terminal-grub-selected { background: #ced0d3; color: #090909; }
+@media (prefers-reduced-motion: no-preference) {
+  .terminal-power-question {
+    animation: terminal-power-question 2.25s .24s both;
+  }
+  @keyframes terminal-power-question {
+    0%, 100% { opacity: 0; }
+    29%, 62% { opacity: 1; }
+  }
+}

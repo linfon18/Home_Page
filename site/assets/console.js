@@ -3,15 +3,22 @@ SitePage.register('console', scope => {
   'use strict';
   const panel=document.querySelector('.home-console');if(!panel)return;
   const screen=panel.querySelector('[data-linux-screen]'),lines=panel.querySelector('[data-linux-lines]');
+  const toggle=panel.querySelector('[data-terminal-toggle]');
   const make=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
   const overlay=make('div','terminal-interactive');overlay.hidden=true;
   const transcript=make('div','terminal-stage-output'),form=make('form','terminal-input-row'),prompt=make('label','terminal-prompt'),input=make('input','terminal-input');transcript.hidden=true;
   input.id='terminal-command';input.autocomplete='off';input.spellcheck=false;input.setAttribute('autocapitalize','off');input.setAttribute('aria-label','终端命令');prompt.htmlFor=input.id;
   const submit=make('button','terminal-enter','↵');submit.type='submit';submit.setAttribute('aria-label','执行命令');
-  form.append(prompt,input,submit);screen.append(transcript,overlay);
+  const powerCurtain=make('div','terminal-power-curtain'),question=make('span','terminal-power-question','?');
+  const powerButton=make('button','terminal-power-button','PowerUp'),bootLog=make('div','terminal-boot-log');
+  powerCurtain.hidden=powerButton.hidden=bootLog.hidden=true;
+  powerButton.type='button';question.setAttribute('aria-hidden','true');
+  powerCurtain.append(question,powerButton,bootLog);
+  form.append(prompt,input,submit);screen.append(transcript,overlay);panel.append(powerCurtain);
   const home='/home/linfon18',project=home+'/scratch/netprobe';
   let cwd=project,active=false,hovered=false,timer=0,mode='shell',historyIndex=0,savedInput='',editorFile='',editorText='',vimInsert=false,autoRow=null,output=lines,stage=false,visualRow=null,savedNodes=null,dirty=false;
-  scope.cleanup(()=>{clearTimeout(timer);clearTimeout(pingTimer);programs.dispose();active=false;});
+  let powerTimer=0,shuttingDown=false,focusAfterBoot=false;
+  scope.cleanup(()=>{clearTimeout(timer);clearTimeout(pingTimer);clearTimeout(powerTimer);programs.dispose();active=false;});
   const history=[];
   let pingTimer=0,pingRun=null,touchOwned=false,composing=false,lastDebuggerCommand='',stageSnapshot=null,programPrompt='',screenPointer=null;
   const files=new Map([
@@ -25,14 +32,17 @@ SitePage.register('console', scope => {
     ['/etc/os-release','PRETTY_NAME="Debian GNU/Linux 13 (trixie)"\nNAME="Debian GNU/Linux"\nVERSION_ID="13"\nID=debian'],
     ['/etc/hostname','debian'],['/etc/hosts','127.0.0.1 localhost\n::1 localhost ip6-localhost ip6-loopback']
   ]);
-  const commands=['help','ls','ll','pwd','cd','whoami','hostname','id','uname','date','uptime','echo','cat','clear','history','tree','grep','head','tail','wc','file','gcc','make','gdb','vi','vim','apt','sudo','sl','top','htop','ping','ip','ss','git','df','free','du','ps','systemctl','journalctl','curl','dig','find','which','man','touch','mkdir','chmod','tar','sha256sum','python3','tmux','exit'];
-  const shell=window.TerminalShell(files,{home,project,cwd:()=>cwd,chdir:p=>{cwd=p;},catastrophe:()=>document.dispatchEvent(new CustomEvent('terminal-catastrophe'))});
+  const commands=['help','ls','ll','pwd','cd','whoami','hostname','id','uname','date','uptime','echo','cat','clear','history','tree','grep','head','tail','wc','file','gcc','make','gdb','vi','vim','apt','sudo','sl','top','htop','ping','ip','ss','git','df','free','du','ps','systemctl','journalctl','curl','dig','find','which','man','touch','mkdir','chmod','tar','sha256sum','python3','tmux','exit','reboot','shutdown'];
+  const initialFiles=new Map(files);
+  const shellOptions={home,project,cwd:()=>cwd,chdir:p=>{cwd=p;},catastrophe:()=>document.dispatchEvent(new CustomEvent('terminal-catastrophe'))};
+  let shell=window.TerminalShell(files,shellOptions);
   shell.names.forEach(cmd=>{if(!commands.includes(cmd))commands.push(cmd);});
-  const programs=window.TerminalPrograms({screen,lines,write,
+  const programHost={screen,lines,write,
     mode:(name,text)=>{mode=name;programPrompt=text||'';input.value='';input.readOnly=name!=='confirm';dirty=true;setPrompt();paintInput();},
     finish:code=>{shell.setStatus(code);mode='shell';input.readOnly=false;dirty=true;setPrompt();paintInput();},
     status:code=>shell.setStatus(code),command:value=>writeCommand(value)
-  });
+  };
+  let programs=window.TerminalPrograms(programHost);
   function claimScreen(){
     if(stage&&!stageSnapshot){stageSnapshot=Array.from(screen.querySelectorAll(':scope > .linux-train,:scope > .linux-process,:scope > [data-linux-editor]')).map(el=>[el,el.hidden]);stageSnapshot.forEach(([el])=>el.hidden=true);lines.hidden=false;}
   }
@@ -46,7 +56,7 @@ SitePage.register('console', scope => {
     return lead;
   }
   function paintInput(){
-    if(!active||!dirty||mode==='vim'||mode==='ping'||programs.active&&mode!=='confirm')return;
+    if(!active||shuttingDown||!dirty||mode==='vim'||mode==='ping'||programs.active&&mode!=='confirm')return;
     claimScreen();
     if(!visualRow){
       if(autoRow&&autoRow.parentNode===lines){savedNodes=document.createDocumentFragment();while(autoRow.firstChild)savedNodes.append(autoRow.firstChild);visualRow=autoRow;}
@@ -78,6 +88,7 @@ SitePage.register('console', scope => {
     if(target===input)input.setSelectionRange(input.value.length,input.value.length);
   }
   function activate(){
+    if(shuttingDown)return;
     cancel();if(!active){
       active=true;panel.classList.add('is-interactive');document.dispatchEvent(new CustomEvent('terminal-interaction',{detail:true}));document.dispatchEvent(new CustomEvent('terminal-snapshot-request'));
       stage=lines.hidden;output=lines;stageSnapshot=null;autoRow=null;dirty=false;
@@ -90,12 +101,12 @@ SitePage.register('console', scope => {
     focusCommand();
   }
   function resume(){
-    if(!active)return;cancel();programs.cancel();if(['train','top','job','confirm'].includes(mode)){mode='shell';input.readOnly=false;}if(stageSnapshot){stageSnapshot.forEach(([el,hidden])=>el.hidden=hidden);lines.hidden=stage;stageSnapshot=null;}touchOwned=false;if(pingRun)stopPing(false);active=false;overlay.hidden=true;transcript.hidden=true;form.remove();
+    if(!active||shuttingDown)return;cancel();programs.cancel();if(['train','top','job','confirm'].includes(mode)){mode='shell';input.readOnly=false;}if(stageSnapshot){stageSnapshot.forEach(([el,hidden])=>el.hidden=hidden);lines.hidden=stage;stageSnapshot=null;}touchOwned=false;if(pingRun)stopPing(false);active=false;overlay.hidden=true;transcript.hidden=true;form.remove();
     if(visualRow){if(visualRow===autoRow&&savedNodes){autoRow.replaceChildren(savedNodes);savedNodes=null;}else visualRow.remove();visualRow=null;}
     if(autoRow&&!autoRow.parentNode){lines.append(autoRow);lines.scrollTop=lines.scrollHeight;}autoRow=null;dirty=false;panel.classList.remove('is-interactive');if(panel.contains(document.activeElement))document.activeElement.blur();
     document.dispatchEvent(new CustomEvent('terminal-interaction',{detail:false}));
   }
-  function schedule(){if(!active||touchOwned)return;cancel();timer=setTimeout(()=>{if(!touchOwned)resume();},5000);}
+  function schedule(){if(!active||touchOwned||shuttingDown)return;cancel();timer=setTimeout(()=>{if(!touchOwned)resume();},5000);}
   panel.addEventListener('pointerenter',e=>{if(e.pointerType==='touch')return;hovered=true;activate();});
   panel.addEventListener('pointerleave',e=>{hovered=false;if(e.pointerType!=='touch')schedule();});
   panel.addEventListener('click',e=>{
@@ -183,6 +194,284 @@ SitePage.register('console', scope => {
     else if(!vimInsert&&e.key===':'){e.preventDefault();input.value='';input.focus({preventScroll:true});}
     else if(vimInsert&&e.key==='Tab'){e.preventDefault();textarea.setRangeText('    ',textarea.selectionStart,textarea.selectionEnd,'end');}
   });
+  function restartShell(){
+    cwd=project;
+    mode='shell';
+    history.length=0;
+    historyIndex=0;
+    savedInput=lastDebuggerCommand=programPrompt=editorFile=editorText='';
+    debuggerState=null;
+    composing=vimInsert=false;
+    files.clear();
+    for(const [name,value] of initialFiles)files.set(name,value);
+    shell=window.TerminalShell(files,shellOptions);
+    programs.dispose();
+    programs=window.TerminalPrograms(programHost);
+    snapshotSource=files.get(project+'/probe.c');
+
+    autoRow=visualRow=savedNodes=stageSnapshot=null;
+    stage=false;
+    output=lines;
+    overlay.hidden=vim.hidden=transcript.hidden=true;
+    textarea.value=input.value='';
+    transcript.replaceChildren();
+    document.dispatchEvent(new Event('terminal-reset'));
+    autoRow=lines.querySelector('.linux-line:has(.linux-caret)');
+    input.readOnly=false;
+    shuttingDown=false;
+    powerCurtain.hidden=bootLog.hidden=true;
+    bootLog.replaceChildren();
+    delete powerCurtain.dataset.power;
+    panel.classList.remove('is-shutting-down');
+    toggle.disabled=false;
+    setPrompt();
+    if(hovered||document.activeElement===input||focusAfterBoot){
+      dirty=true;
+      paintInput();
+      if(focusAfterBoot)focusCommand();
+      if(!hovered)schedule();
+    }else{
+      resume();
+    }
+    focusAfterBoot=false;
+  }
+  const kernelLog=[
+    [45,
+      '[    0.000000] Linux version 6.12.0-1-amd64 (debian-kernel@lists.debian.org) #1 SMP PREEMPT_DYNAMIC',
+      '[    0.000000] Command line: BOOT_IMAGE=/vmlinuz root=/dev/vda1 ro',
+      '[    0.000000] BIOS-provided physical RAM map:',
+      '[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable',
+      '[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bffdffff] usable',
+      '[    0.000000] NX (Execute Disable) protection: active',
+      '[    0.000000] Hypervisor detected: KVM',
+      '[    0.000002] kvm-clock: using sched offset of 1935012416 cycles',
+      '[    0.002618] tsc: Detected 2592.000 MHz processor',
+      '[    0.012118] ACPI: Core revision 20240827',
+      '[    0.022597] x86/fpu: Supporting XSAVE feature 0x001: x87 floating point registers',
+      '[    0.045388] printk: legacy console [tty0] enabled',
+      '[    0.064622] Memory: 3891200K/4194304K available',
+      '[    0.072948] smpboot: CPU0: Intel(R) Core(TM) Processor (Skylake, IBRS)',
+      '[    0.091151] smp: Bringing up secondary CPUs ...',
+      '[    0.132506] smp: Brought up 1 node, 4 CPUs',
+      '[    0.139486] devtmpfs: initialized'],
+    [55,
+      '[    0.189882] NET: Registered PF_NETLINK/PF_ROUTE protocol family',
+      '[    0.212025] audit: initializing netlink subsys (disabled)',
+      '[    0.249687] PCI: Using configuration type 1 for base access',
+      '[    0.271346] pci 0000:00:02.0: [1234:1111] type 00 class 0x030000',
+      '[    0.285457] PCI: CLS 64 bytes, default 64',
+      '[    0.311761] ACPI: bus type USB registered',
+      '[    0.311916] usbcore: registered new interface driver usbfs',
+      '[    0.312014] usbcore: registered new interface driver hub',
+      '[    0.312103] usbcore: registered new device driver usb',
+      '[    0.384904] TCP established hash table entries: 32768 (order: 6, 262144 bytes)',
+      '[    0.406218] NET: Registered PF_INET6 protocol family',
+      '[    0.436512] Trying to unpack rootfs image as initramfs...',
+      '[    0.472678] Initialise system trusted keyrings',
+      '[    0.499706] xhci_hcd 0000:00:03.0: xHCI Host Controller',
+      '[    0.499755] xhci_hcd 0000:00:03.0: new USB bus registered, assigned bus number 1',
+      '[    0.587519] Run /init as init process'],
+    [85,
+      '[    0.614215] virtio-pci 0000:00:04.0: enabling device (0000 -> 0002)',
+      '[    0.646286] virtio_blk virtio0: [vda] 83886080 512-byte logical blocks (42.9 GB/40.0 GiB)',
+      '[    0.646992]  vda: vda1',
+      '[    0.667481] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input0',
+      '[    0.768339] virtio_net virtio1 ens3: renamed from eth0',
+      '[    0.912284] systemd-udevd: Using default interface naming scheme v257.',
+      'Begin: Running /scripts/local-top ... done.',
+      'Begin: Waiting for root file system ... done.'],
+  ];
+  const serviceLog=[
+    [73,
+      'fsck.ext4: /dev/vda1: clean, 182064/2621440 files, 3880306/10485760 blocks',
+      '[    2.318760] EXT4-fs (vda1): mounted filesystem ro with ordered data mode.',
+      'Begin: Running /scripts/local-bottom ... done.',
+      'Begin: Running /scripts/init-bottom ... done.',
+      '[    2.681932] systemd[1]: systemd 257 running in system mode (+PAM +AUDIT +SELINUX).',
+      '[    2.682252] systemd[1]: Detected virtualization kvm.',
+      '[    2.683595] systemd[1]: Hostname set to <debian>.',
+      '[    2.741298] systemd[1]: Queued start job for default target Multi-User System.',
+      '[  OK  ] Created slice system-getty.slice.',
+      '[  OK  ] Created slice User and Session Slice.',
+      '[  OK  ] Started Dispatch Password Requests to Console Directory Watch.',
+      '[  OK  ] Reached target Path Units.',
+      '[  OK  ] Listening on Journal Socket (/dev/log).',
+      '[  OK  ] Listening on udev Kernel Socket.',
+      '         Starting Load Kernel Modules...',
+      '         Starting Journal Service...',
+      '         Starting Remount Root and Kernel File Systems...',
+      '[    3.178405] EXT4-fs (vda1): re-mounted r/w.',
+      '[  OK  ] Started Journal Service.',
+      '[  OK  ] Finished Load Kernel Modules.',
+      '[  OK  ] Finished Remount Root and Kernel File Systems.',
+      '[  OK  ] Finished Create Static Device Nodes in /dev.',
+      '[  OK  ] Started Rule-based Manager for Device Events and Files.',
+      '[  OK  ] Reached target Local File Systems.',
+      '[  OK  ] Finished Coldplug All udev Devices.',
+      '[  OK  ] Reached target System Initialization.',
+      '[  OK  ] Started Daily apt download activities.',
+      '[  OK  ] Reached target Basic System.',
+      '         Starting D-Bus System Message Bus...',
+      '         Starting Raise network interfaces...',
+      '[  OK  ] Started D-Bus System Message Bus.'],
+    [115,
+      'DHCPDISCOVER on ens3 to 255.255.255.255 port 67 interval 3',
+      'DHCPOFFER of 10.0.2.15 from 10.0.2.2',
+      'DHCPREQUEST for 10.0.2.15 on ens3 to 255.255.255.255 port 67',
+      'DHCPACK of 10.0.2.15 from 10.0.2.2',
+      'bound to 10.0.2.15 -- renewal in 40012 seconds.',
+      '[  OK  ] Finished Raise network interfaces.',
+      '[  OK  ] Reached target Network.',
+      '[  OK  ] Started System Logging Service.',
+      '[  OK  ] Started Regular background program processing daemon.',
+      '[  OK  ] Started OpenBSD Secure Shell server.',
+      '[  OK  ] Started Getty on tty1.',
+      '[  OK  ] Reached target Login Prompts.',
+      '[  OK  ] Reached target Multi-User System.',
+      '[    5.349108] systemd[1]: Startup finished in 2.681s (kernel) + 2.668s (userspace) = 5.349s.'],
+  ];
+  function startBoot(){
+    focusAfterBoot=document.activeElement===powerButton;
+    powerCurtain.dataset.power='boot';
+    powerButton.hidden=true;
+    bootLog.dataset.stage='logo';
+    bootLog.replaceChildren(make('div','terminal-boot-title','PowerUp'));
+    bootLog.hidden=false;
+    const later=(next,delay)=>{powerTimer=setTimeout(next,delay);};
+    function append(text){
+      const row=make('div','',text);
+      if(text.startsWith('[  OK  ]'))row.replaceChildren(make('span','terminal-boot-ok','[  OK  ]'),text.slice(8));
+      bootLog.append(row);
+      bootLog.scrollTop=bootLog.scrollHeight;
+      return row;
+    }
+    function stage(name){
+      bootLog.dataset.stage=name;
+      bootLog.replaceChildren();
+    }
+    function stream(groups,done){
+      let group=0,index=1;
+      function next(){
+        const rows=groups[group];
+        if(!rows){done();return;}
+        const batch=group%2===0?2:1;
+        for(let count=0;count<batch&&index<rows.length;count++)append(rows[index++]);
+        if(index===rows.length){group++;index=1;}
+        later(next,rows[0]+Math.random()*44);
+      }
+      next();
+    }
+    function login(){
+      stage('tty');
+      append('Debian GNU/Linux 13 debian tty1');
+      append('');
+      const row=append('debian login: ');
+      const cursor=make('span','linux-caret',' ');
+      row.append(cursor);
+      const username='linfon18';
+      let index=0;
+      function type(){
+        cursor.before(username[index++]);
+        if(index<username.length){later(type,72+Math.random()*60);return;}
+        later(()=>{
+          cursor.remove();
+          append('Last login: '+new Date().toLocaleTimeString('en-GB',{hour12:false})+' on tty1');
+          later(restartShell,560);
+        },350);
+      }
+      later(type,350);
+    }
+    function checkDisk(){
+      const row=append('fsck.ext4: /dev/vda1: checking inodes, blocks and sizes ...');
+      const passes=['inodes, blocks and sizes','directory structure','directory connectivity','reference counts','group summary information'];
+      let index=0;
+      function pass(){
+        row.textContent='fsck.ext4: /dev/vda1: Pass '+(index+1)+' of 5: '+passes[index];
+        index++;
+        if(index<passes.length)later(pass,125+index*25);
+        else later(()=>stream(serviceLog,login),240);
+      }
+      later(pass,280);
+    }
+    function grub(){
+      stage('grub');
+      bootLog.append(make('div','terminal-grub-label','GNU GRUB  2.12'));
+      const menu=make('div','terminal-grub-menu');
+      menu.append(make('div','terminal-grub-selected','* Debian GNU/Linux'),make('div','','  Advanced options for Debian GNU/Linux'));
+      bootLog.append(menu);
+      const countdown=append('Booting default entry in 2s');
+      later(()=>{
+        countdown.textContent='Booting default entry in 1s';
+        later(()=>{
+          stage('loader');
+          append('Loading Linux 6.12.0-1-amd64 ...');
+          later(()=>{
+            append('Loading initial ramdisk ...');
+            later(()=>{
+              stage('kernel');
+              stream(kernelLog,checkDisk);
+            },470);
+          },270);
+        },700);
+      },700);
+    }
+    function post(){
+      stage('post');
+      append('SeaBIOS · QEMU Standard PC (Q35 + ICH9)');
+      append('');
+      append('CPU: x86_64 KVM, 4 logical processors');
+      const memory=append('Memory test: 0 MiB');
+      let checked=0;
+      function count(){
+        checked+=1024;
+        memory.textContent='Memory test: '+checked+' MiB'+(checked===4096?' OK':'');
+        if(checked<4096){later(count,125);return;}
+        append('PCI: 00:04.0 VirtIO Block Device');
+        later(()=>{
+          append('Drive 0: QEMU HARDDISK, 40960 MiB');
+          append('Booting from Hard Disk...');
+          later(grub,470);
+        },260);
+      }
+      later(count,160);
+    }
+    later(post,580);
+  }
+  powerButton.addEventListener('click',startBoot);
+  function powerOff(autoBoot){
+    cancel();
+    shuttingDown=true;
+    input.readOnly=true;
+    toggle.disabled=true;
+    panel.classList.add('is-shutting-down');
+    powerCurtain.dataset.power='question';
+    powerCurtain.hidden=false;
+    powerTimer=setTimeout(()=>{
+      if(autoBoot){startBoot();return;}
+      powerCurtain.dataset.power='off';
+      powerButton.hidden=false;
+    },autoBoot?5000:2600);
+  }
+  function exitShell(args){
+    const invalid=args.length&&!/^[+-]?\d+$/.test(args[0]);
+    if(!invalid&&args.length>1){
+      shell.setStatus(1);
+      write('bash: exit: too many arguments','linux-error');
+      return;
+    }
+    write('logout');
+    if(invalid)write('bash: exit: '+args[0]+': numeric argument required','linux-error');
+    powerOff(true);
+  }
+  function powerCommand(command,args){
+    const supported=command==='reboot'?[]:['-h','-P','-r','--halt','--poweroff','--reboot','now','+0'];
+    if(args.some(arg=>!supported.includes(arg))){
+      shell.setStatus(1);
+      write(command==='reboot'?'Usage: reboot':'Usage: shutdown [-h|-P|-r] [now|+0]','linux-error');
+    }else{
+      powerOff(command==='reboot'||args.includes('-r')||args.includes('--reboot'));
+    }
+  }
   function execute(text){
     if(!text.trim()){
       if(mode==='vim'){textarea.focus({preventScroll:true});return;}
@@ -225,13 +514,14 @@ SitePage.register('console', scope => {
       case 'man':write((arg||'help').toUpperCase()+'(1)\n\nTry: '+({gcc:'gcc -Wall -g -O0 probe.c -o build/probe',gdb:'gdb ./build/probe → break probe → run → print retry_limit → quit',vim:'vim probe.c → i → edit → Esc → :wq',apt:'sudo apt update / sudo apt install tree'}[arg]||'help')+'\n\n此处提供常用命令的本地预设。','linux-muted');break;
       case 'python3':write('Python 3.13.5');break;
       case 'tmux':write('dev: 1 windows (created today) [80x24]');break;
-      case 'exit':case 'logout':write('返回播放。','linux-muted');resume();break;
+      case 'exit':case 'logout':exitShell(args);break;
+      case 'reboot':case 'shutdown':powerCommand(cmd,args);break;
       default:shell.setStatus(sudo?1:127);write((sudo?'sudo: ':'bash: ')+cmd+': command not found','linux-error');
     }
     if(mode!=='ping')setPrompt();
   }
   function submitInput(){
-    if(!active||composing)return;keepTyping();
+    if(!active||composing||shuttingDown)return;keepTyping();
     const value=input.value;claimScreen();releaseLine();input.value='';
     if(programs.active)programs.submit(value);else if(mode==='ping')write('');else execute(value);
     dirty=true;paintInput();output.scrollTop=output.scrollHeight;
@@ -243,6 +533,7 @@ SitePage.register('console', scope => {
   textarea.addEventListener('compositionstart',keepTyping);textarea.addEventListener('input',keepTyping);
   input.addEventListener('keydown',e=>{
     e.stopPropagation();
+    if(shuttingDown){if(e.key!=='Tab')e.preventDefault();return;}
     if(e.isComposing||e.keyCode===229||composing){if(e.key==='Enter')e.preventDefault();return;}
     if(programs.active&&programs.key(e)){e.preventDefault();return;}
     if(e.key==='Enter'){e.preventDefault();submitInput();return;}
@@ -256,7 +547,7 @@ SitePage.register('console', scope => {
       else if(key==='u')input.setRangeText('',0,pos,'start');
       else if(key==='k')input.setRangeText('',pos,input.value.length,'end');
       else if(key==='w'){const start=input.value.slice(0,pos).replace(/\S+\s*$/,'').length;input.setRangeText('',start,pos,'start');}
-      else if(!input.value){write('exit');resume();}
+      else if(!input.value&&['shell','gdb'].includes(mode)){input.value='exit';submitInput();}
       else input.setRangeText('',pos,Math.min(pos+1,input.value.length),'start');
     }else if(e.key==='ArrowUp'||e.key==='ArrowDown'){
       e.preventDefault();if(historyIndex===history.length)savedInput=input.value;historyIndex=Math.max(0,Math.min(history.length,historyIndex+(e.key==='ArrowUp'?-1:1)));input.value=historyIndex===history.length?savedInput:history[historyIndex];

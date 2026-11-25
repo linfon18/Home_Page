@@ -8,7 +8,8 @@ SitePage.register('linux', scope => {
   const state={timeout:1200,retries:3},pick=items=>items[Math.floor(Math.random()*items.length)],integer=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
   const element=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
   const caret=()=>element('span','linux-caret',' ');
-  let inView=true,releaseWait=null,sleepTimer=0;
+  let inView=true,releaseWait=null,sleepTimer=0,restart=false;
+  const interrupted=Symbol('terminal playback interrupted');
   function wakeWait(){clearTimeout(sleepTimer);sleepTimer=0;if(releaseWait){const resolve=releaseWait;releaseWait=null;resolve();}}
   function updateControl(){toggle.setAttribute('aria-pressed',String(paused));toggle.setAttribute('aria-label',paused?'继续终端播放':'暂停终端播放');control.textContent=paused?'▶':'Ⅱ';screen.classList.toggle('is-paused',paused);screen.classList.toggle('is-interacting',interacting);wakeWait();}
   scope.on(document,'terminal-interaction',event=>{interacting=!!event.detail;updateControl();if(!interacting)label.textContent=sceneLabel;});
@@ -16,7 +17,15 @@ SitePage.register('linux', scope => {
   scope.on(reduced,'change',()=>{if(reduced.matches){paused=true;updateControl();}});
   scope.on(document,'visibilitychange',()=>{visible=!document.hidden;wakeWait();});scope.on(window,'pagehide',()=>{visible=false;wakeWait();});scope.on(window,'pageshow',()=>{visible=!document.hidden;wakeWait();});
   const viewportObserver=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;wakeWait();});viewportObserver.observe(screen);
-  async function wait(ms){let remaining=ms;while(remaining>0&&!closing){const running=!paused&&!interacting&&visible&&inView,start=performance.now();await new Promise(resolve=>{releaseWait=resolve;if(running)sleepTimer=setTimeout(wakeWait,Math.max(1,Math.ceil(remaining)));});if(running)remaining-=Math.max(0,performance.now()-start);}}
+  async function wait(ms){
+    let remaining=ms;
+    while(remaining>0&&!closing&&!restart){
+      const running=!paused&&!interacting&&visible&&inView,start=performance.now();
+      await new Promise(resolve=>{releaseWait=resolve;if(running)sleepTimer=setTimeout(wakeWait,Math.max(1,Math.ceil(remaining)));});
+      if(running)remaining-=Math.max(0,performance.now()-start);
+    }
+    if(closing||restart)throw interrupted;
+  }
   function bottom(){lines.scrollTop=lines.scrollHeight;}
   function out(text,cls=''){const row=element('div','linux-line '+cls,text);lines.append(row);while(lines.children.length>90)lines.firstElementChild.remove();bottom();return row;}
   function prompt(kind='shell'){
@@ -42,7 +51,7 @@ SitePage.register('linux', scope => {
     }
   }
   async function command(text,options={}){
-    const input=prompt(options.kind);await wait(integer(260,850));
+    const input=options.reusePrompt&&current||prompt(options.kind);await wait(integer(260,850));
     if(options.complete){await type(input,text.slice(0,options.complete),{typo:false});await wait(230);input.text+=text.slice(options.complete);input.pos=input.text.length;paint(input);await wait(250);}
     else await type(input,text,options);
     await wait(integer(160,390));input.caret.remove();current=null;await wait(integer(100,280));return input;
@@ -292,9 +301,37 @@ SitePage.register('linux', scope => {
   const extras=[packages,train,logs,network,process,inspect,shellEdit,versionControl,services,backup,permissions,textTools,containers,httpCheck,makeBuild,sessions,pythonCheck,webRecovery,transfer,dnsTrouble,tracing,testBuild,permissionTrouble,logAnalysis,gitCheckpoint];let bag=[];
   function nextExtra(){if(!bag.length){bag=extras.slice();for(let n=bag.length-1;n>0;n--){const j=integer(0,n);[bag[n],bag[j]]=[bag[j],bag[n]];}}return bag.pop();}
   function itinerary(){const tail=[nextExtra(),nextExtra(),nextExtra(),nextExtra()];return Math.random()<.5?[vimEdit,compile,debug,...tail]:[tail[0],vimEdit,compile,debug,...tail.slice(1)];}
-  async function run(){
-    if(paused){while(paused&&!closing)await wait(60);}
-    lines.replaceChildren();out('Debian GNU/Linux · x86_64','linux-muted');out('');await command('cd ~/scratch/netprobe',{typo:false});await command('mkdir -p build',{typo:false});
+  function bootBanner(){
+    lines.replaceChildren();
+    out('Debian GNU/Linux · x86_64','linux-muted');
+    out('');
+  }
+  scope.on(document,'terminal-reset',()=>{
+    restart=true;
+    cycle=sudoUntil=0;
+    state.timeout=1200;
+    state.retries=3;
+    cwd='~/scratch/netprobe';
+    bag=[];
+    current=null;
+    delete screen.dataset.session;
+    editor.hidden=true;
+    screen.querySelectorAll(':scope > .linux-train,:scope > .linux-process').forEach(el=>el.remove());
+    lines.hidden=false;
+    scene('bash','bash');
+    label.textContent=sceneLabel;
+    bootBanner();
+    prompt();
+    wakeWait();
+  });
+  async function run(rebooted){
+    if(rebooted)await wait(120);
+    else{
+      while(paused)await wait(60);
+      bootBanner();
+    }
+    await command('cd ~/scratch/netprobe',{typo:false,reusePrompt:rebooted});
+    await command('mkdir -p build',{typo:false});
     while(!closing){cycle++;screen.dataset.session=String(cycle);
       // The session number, evolving code and shuffled operations make each full
       // session distinct. No transcript grows indefinitely in memory.
@@ -303,6 +340,14 @@ SitePage.register('linux', scope => {
       if(cycle%2===0)await clean();
     }
   }
+  async function play(){
+    let rebooted=false;
+    while(!closing){
+      restart=false;
+      try{await run(rebooted);}catch(error){if(error!==interrupted)throw error;}
+      rebooted=true;
+    }
+  }
   scope.cleanup(()=>{closing=true;viewportObserver.disconnect();wakeWait();});
-  updateControl();if(paused)label.textContent='bash';run().catch(()=>{paused=true;updateControl();label.textContent='已暂停';});
+  updateControl();if(paused)label.textContent='bash';play().catch(()=>{paused=true;updateControl();label.textContent='已暂停';});
 });

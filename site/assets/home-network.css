@@ -84,6 +84,13 @@
   pointer-events: auto;
 }
 .home-pet[hidden] { display: none; }
+.home-pet[data-perched] { pointer-events: none; }
+.home-pet[data-perched]::before {
+  position: absolute;
+  inset: 0 0 11px;
+  pointer-events: auto;
+  content: "";
+}
 .home-pet:active { cursor: grabbing; }
 .home-pet:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; }
 .home-pet-body {
@@ -91,30 +98,23 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--pet-tone, var(--blue));
+  pointer-events: none;
   box-shadow: inset 0 -2px 3px #14285e30, 0 2px 4px #172e642f;
   transform-origin: 50% 90%;
+  transition: background-color .34s ease;
 }
-.home-pet-body::after {
-  position: absolute;
-  inset: 3px auto auto 4px;
-  width: 7px;
-  height: 4px;
-  border-radius: 65%;
-  background: #fff9;
-  transform: translate(var(--gaze-x, 0), var(--gaze-y, 0)) rotate(-24deg);
-  transition: transform .18s ease-out, opacity .22s;
-  content: "";
-}
+.home-pet[data-mood=curious] { --pet-tone: #23a69a; }
+.home-pet[data-mood=playful] { --pet-tone: #e8a640; }
+.home-pet[data-mood=startled] { --pet-tone: #e57971; }
+.home-pet[data-mood=sleepy] { --pet-tone: #8b8cae; }
 .home-pet[data-pose=seed] .home-pet-body { box-shadow: none; }
-.home-pet:is([data-pose=seed],[data-pose=doze]) .home-pet-body::after { opacity: 0; }
-.home-pet.is-blinking .home-pet-body::after { opacity: .3; }
-.home-pet:is([data-pose=fall],[data-pose=drop]) .home-pet-body::before {
+.home-pet:is([data-pose=fall],[data-pose=drop],[data-pose=throw]) .home-pet-body::before {
   position: absolute;
   inset: auto 24% 80%;
   height: 28px;
   border-radius: 50% 50% 25% 25%;
-  background: linear-gradient(transparent, #8fd7ff72);
+  background: linear-gradient(transparent, color-mix(in srgb, var(--pet-tone, var(--blue)) 50%, transparent));
   content: "";
   pointer-events: none;
 }
@@ -126,15 +126,15 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #ccf5ff;
-  box-shadow: 0 0 4px #3978de;
+  background: var(--spark-tone, var(--blue));
+  box-shadow: 0 0 4px var(--spark-tone, var(--blue));
   pointer-events: none;
 }
 .home-pet-spark.is-ring {
   width: 22px;
   height: 8px;
   margin: -4px -11px;
-  border: 1px solid #a9e8ff;
+  border: 1px solid var(--spark-tone, var(--blue));
   background: transparent;
 }
 
