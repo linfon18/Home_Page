@@ -2,12 +2,13 @@
   'use strict';
   const toggle = document.querySelector('[data-daily-wallpaper]');
   const layer = document.querySelector('.wallpaper');
-  if (!toggle || !layer) return;
+  const source = window.dailyWallpaperRequest;
+  if (!toggle || !layer || !source) return;
 
-  const key = 'linfon-daily-wallpaper';
-  const dayMs = 86400000;
-  let enabled = true, requestedDay = '', pending = null, timer = 0;
-  try { enabled = localStorage.getItem(key) !== 'off'; } catch (_) {}
+  const key = source.preference;
+  const root = document.documentElement;
+  let enabled = source.enabled, requestedDay = '', pending = null, timer = 0;
+  let opening = root.dataset.homeVisit === 'first';
 
   // Measure the small patch behind the fixed navigation only when its crop changes.
   const sampler = document.createElement('canvas');
@@ -39,6 +40,10 @@
   addEventListener('resize', scheduleSample);
   addEventListener('site-page', scheduleSample);
   function show(image) {
+    if (image) {
+      if (opening && root.dataset.homeVisit === 'first') image.classList.add('is-opening');
+      opening = false;
+    }
     layer.replaceChildren(...(image ? [image] : []));
     layer.classList.toggle('has-daily-image', Boolean(image));
     scheduleSample();
@@ -54,30 +59,22 @@
       show(null);
       return;
     }
-    const chinaTime = Date.now() + 8 * 3600000;
-    const day = new Date(chinaTime).toISOString().slice(0, 10);
-    timer = setTimeout(refresh, dayMs - chinaTime % dayMs + 1000);
+    const day = source.day();
+    timer = setTimeout(refresh, source.untilTomorrow());
     if (day === requestedDay) return;
     requestedDay = day;
-    const image = new Image();
-    pending = image;
-    image.className = 'daily-wallpaper';
-    image.alt = '';
-    image.crossOrigin = 'anonymous';
-    image.decoding = 'async';
-    image.onload = () => {
-      if (pending !== image) return;
+    const request = day === source.initialDay && source.initial ? source.initial : source.request(day);
+    source.initial = null;
+    pending = request;
+    request.then(image => {
+      if (pending !== request) return;
       pending = null;
-      show(image);
-    };
-    image.onerror = () => {
-      if (pending !== image) return;
-      pending = null;
-      show(null);
-      clearTimeout(timer);
-      timer = setTimeout(() => { requestedDay = ''; refresh(); }, 15 * 60000);
-    };
-    image.src = 'https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN&day=' + day;
+      if (image) show(image);
+      else {
+        clearTimeout(timer);
+        timer = setTimeout(() => { requestedDay = ''; refresh(); }, Math.min(60000, source.untilTomorrow()));
+      }
+    });
   }
 
   toggle.addEventListener('click', () => {
@@ -91,7 +88,7 @@
     refresh();
   });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && enabled && requestedDay !== new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10)) refresh();
+    if (!document.hidden && enabled && requestedDay !== source.day()) refresh();
   });
   refresh();
 })();

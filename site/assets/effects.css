@@ -3,8 +3,6 @@
 .ambient-field[hidden]{display:none}
 /* The photo opens behind the page. The glass, text and hit areas stay in place. */
 @media(prefers-reduced-motion:no-preference){
-  html[data-home-visit=first] body[data-page=home] .wallpaper .daily-wallpaper{animation:photo-aperture 1.05s cubic-bezier(.28,.05,.22,1)}
-  @keyframes photo-aperture{from{clip-path:circle(1% at 32% 36%)}to{clip-path:circle(145% at 32% 36%)}}
 }
 .home-name #home-name{width:fit-content;max-width:100%;animation:none}
 .home-name #home-name .name-type{position:relative;display:inline-block;color:inherit;margin:0;animation:none;white-space:nowrap}

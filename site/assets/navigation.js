@@ -75,6 +75,7 @@
       }
       document.dispatchEvent(new CustomEvent('site-page-before'));
       SitePage.dispose();
+      delete root.dataset.homeEntrance;
       if(result.doc.body.dataset.page==='home')root.dataset.homeVisit='return';
       else delete root.dataset.homeVisit;
       old.replaceWith(next);

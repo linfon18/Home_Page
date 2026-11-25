@@ -229,8 +229,48 @@ body[data-page="home"] {
 .main-home .home-writing > header > h2 { margin: 0; }
 
 @media (prefers-reduced-motion: no-preference) {
-  html[data-home-visit="first"] body[data-page="home"] .wallpaper .daily-wallpaper {
+  html[data-home-entrance="waiting"] .wallpaper .daily-wallpaper.is-opening { animation: none; }
+  html:is([data-home-entrance="play"],[data-home-entrance="played"]) .wallpaper .daily-wallpaper.is-opening {
     animation: landscape-exposure 1.05s cubic-bezier(.16,.72,.22,1) both;
+  }
+  html[data-home-entrance="play"] .home-stage {
+    --arrival-ease: cubic-bezier(.2,.78,.25,1);
+  }
+  html[data-home-entrance="play"] .home-stage .home-profile {
+    animation: arrival-profile .52s var(--arrival-ease) backwards;
+  }
+  html[data-home-entrance="play"] .home-stage .home-console {
+    animation: arrival-console .75s var(--arrival-ease) .09s backwards;
+  }
+  html[data-home-entrance="play"] .home-avatar img {
+    animation: arrival-avatar .68s var(--arrival-ease) backwards;
+  }
+  html[data-home-entrance="play"] .name-type i {
+    animation: arrival-letter .565s var(--arrival-ease) calc(45ms + var(--letter-index) * 36ms) backwards;
+  }
+  html[data-home-entrance="play"] .home-stage :is(.home-name>p,.home-profile>.home-intro,.home-profile>.home-buttons,.home-profile>.home-social) {
+    animation: arrival-detail .49s var(--arrival-ease) var(--detail-delay, 100ms) backwards;
+  }
+  .home-intro { --detail-delay: 166ms; }
+  .home-buttons { --detail-delay: 232ms; }
+  .home-social { --detail-delay: 298ms; }
+  @keyframes arrival-profile { from { opacity: 0; } }
+  @keyframes arrival-console {
+    from { clip-path: inset(0 0 100% 0 round 18px); }
+    to { clip-path: inset(0 round 18px); }
+  }
+  @keyframes arrival-avatar {
+    from { clip-path: inset(0 100% 0 0 round 25px); scale: 1.08; }
+    to { clip-path: inset(0 round 25px); scale: 1; }
+  }
+  @keyframes arrival-letter {
+    from { transform: perspective(270px) translateY(.48em) rotateX(-76deg); opacity: 0; }
+    72% { transform: perspective(270px) translateY(-.06em) rotateX(7deg); opacity: 1; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes arrival-detail {
+    from { clip-path: inset(0 0 90% 0); opacity: .1; }
+    to { clip-path: inset(0); opacity: 1; }
   }
   @keyframes landscape-exposure {
     from { clip-path: inset(0 92% 0 0); opacity: .18; }

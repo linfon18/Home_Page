@@ -6,42 +6,9 @@
     const title = document.querySelector('#home-name');
     if (!title) return;
     const letters = Array.from(title.querySelectorAll('.name-type i'), el => ({ el, y: 0, v: 0, target: 0 }));
-    const photo = document.querySelector('.home-avatar img');
     const panel = title.closest('.home-profile');
-    let frame = 0, last = 0, opening = [], pressed = false;
+    let frame = 0, last = 0, pressed = false;
     let rimFrame = 0, pointer = null;
-
-    function stopOpening() {
-      opening.forEach(animation => animation.cancel());
-      opening = [];
-    }
-    let pending = document.documentElement.dataset.homeVisit === 'first' && !reduce.matches;
-    function startOpening() {
-      if (!pending || document.hidden) return;
-      pending = false;
-      if (document.documentElement.dataset.homeVisit !== 'first' || reduce.matches || !photo.animate) return;
-      const play = (el, frames, delay, duration) => {
-        opening.push(el.animate(frames, { delay, duration, easing: 'cubic-bezier(.2,.78,.25,1)', fill: 'backwards' }));
-      };
-      play(panel, [{ opacity: 0 }, { opacity: 1 }], 0, 520);
-      const consolePanel = document.querySelector('.home-console');
-      if (consolePanel) play(consolePanel, [
-        { clipPath: 'inset(0 0 100% 0 round 18px)' }, { clipPath: 'inset(0 0 0 0 round 18px)' }
-      ], 90, 750);
-      play(photo, [{ clipPath: 'inset(0 100% 0 0 round 25px)', scale: '1.08' },
-        { clipPath: 'inset(0 0 0 0 round 25px)', scale: '1' }], 0, 680);
-      letters.forEach(({ el }, index) => play(el, [
-        { transform: 'perspective(270px) translateY(.48em) rotateX(-76deg)', opacity: 0 },
-        { transform: 'perspective(270px) translateY(-.06em) rotateX(7deg)', opacity: 1, offset: .72 },
-        { transform: 'none', opacity: 1 }
-      ], 45 + index * 36, 565));
-      const fragments = document.querySelectorAll('.home-name>p,.home-intro,.home-buttons,.home-social');
-      fragments.forEach((element, index) => play(element, [
-        { clipPath: 'inset(0 0 90% 0)', opacity: .1 },
-        { clipPath: 'inset(0 0 0 0)', opacity: 1 }
-      ], 100 + index * 66, 490));
-    }
-    startOpening();
 
     // A damped string: each glyph has mass, a rest position and two neighbours.
     // Integrate in small steps so a slow frame cannot launch the letters offscreen.
@@ -73,7 +40,6 @@
     }
     function respond(event) {
       if (reduce.matches || document.hidden) return;
-      stopOpening();
       const x = event.clientX - title.getBoundingClientRect().left;
       const amplitude = pressed ? 16 : -8;
       letters.forEach(l => {
@@ -93,7 +59,6 @@
       clearRim();
       frame = last = 0;
       pressed = false;
-      stopOpening();
       letters.forEach(l => { l.target = l.v = l.y = 0; l.el.style.removeProperty('transform'); });
     }
     function clearRim() {
@@ -122,13 +87,8 @@
     scope.on(window, 'pointercancel', release);
     scope.on(window, 'scroll', reset, { passive: true });
     scope.on(window, 'blur', reset);
-    scope.on(window, 'pointerdown', stopOpening, { capture: true });
-    scope.on(window, 'keydown', stopOpening);
-    scope.on(document, 'visibilitychange', () => {
-      if (document.hidden) reset();
-      else startOpening();
-    });
-    scope.on(window, 'pagehide', () => { pending = false; reset(); });
+    scope.on(document, 'visibilitychange', () => { if (document.hidden) reset(); });
+    scope.on(window, 'pagehide', reset);
     scope.on(reduce, 'change', reset);
     scope.cleanup(reset);
   });
