@@ -96,7 +96,7 @@
   document.addEventListener('site-page-before',()=>{if(pageAnimation)pageAnimation.cancel();});
   addEventListener('site-page',event=>{
     const main=document.querySelector('#main');
-    if(main.hasAttribute('data-title-transfer')||document.documentElement.dataset.homeVisit==='return'||reduced.matches||!main.animate)return;
+    if(main.hasAttribute('data-title-transfer')||reduced.matches||!main.animate)return;
     const offset=(event.detail?.direction||1)*18;
     pageAnimation=main.animate([
       {opacity:.45,transform:`translate3d(${offset}px,6px,0)`},

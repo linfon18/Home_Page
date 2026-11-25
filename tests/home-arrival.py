@@ -26,8 +26,16 @@ with ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(dist))) 
         ctx.add_init_script("""
           window.openings=0;
           window.finishes=0;
+          window.homeTransitions=0;
           document.addEventListener('animationstart', e => { if(e.animationName === 'arrival-console') openings++; });
           document.addEventListener('animationend', e => { if(e.animationName === 'arrival-console') finishes++; });
+          window.addEventListener('site-page', () => requestAnimationFrame(() => {
+            if (document.body.dataset.page !== 'home') return;
+            const container = document.querySelector('#main');
+            const transition = container.getAnimations().find(a =>
+              a.effect.target === container && a.effect.getKeyframes()[0].opacity === '0.45');
+            if (transition) transition.finished.then(() => homeTransitions++, () => {});
+          }));
           sessionStorage.setItem('linfon-home-visited','1');
         """)
         page = ctx.new_page()
@@ -48,12 +56,22 @@ with ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(dist))) 
         page.goto(base + '/about/')
         page.locator('.main-nav a[href="/"]').click()
         page.wait_for_selector('#home-name')
+        page.wait_for_function('homeTransitions === 1')
         assert page.evaluate('openings') == 0
         page.locator('.main-nav a[href="/articles/"]').click()
         page.wait_for_url('**/articles/')
         page.go_back()
         page.wait_for_selector('#home-name')
+        page.wait_for_function('homeTransitions === 2')
         assert page.evaluate('openings') == 0
+        page.emulate_media(reduced_motion='reduce')
+        page.locator('.main-nav a[href="/articles/"]').click()
+        page.wait_for_url('**/articles/')
+        page.locator('.main-nav a[href="/"]').click()
+        page.wait_for_selector('#home-name')
+        assert page.locator('#main').evaluate('e=>e.getAnimations().length') == 0
+        assert page.evaluate('openings') == 0
+        page.emulate_media(reduced_motion='no-preference')
         page.goto(base, referer=base + '/about/')
         assert page.evaluate('openings') == 0
         # Simulate loading a direct visit in an initially hidden document.
