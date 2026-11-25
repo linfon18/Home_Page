@@ -4,6 +4,7 @@ SitePage.register('relay-field', scope => {
   if (!ctx) return;
   const viewport = canvas.parentElement;
   const section = canvas.closest('.home-network');
+  const details = viewport.closest('.home-network-details');
   const controls = section.querySelector('.home-network-controls');
   const description = section.querySelector('[data-relay-description]');
   const hint = section.querySelector('[data-relay-hint]');
@@ -58,7 +59,7 @@ SitePage.register('relay-field', scope => {
     const x = point.x * cos - point.z * sin * .73;
     const z = point.x * sin + point.z * cos * .73;
     const depth = 3.1 / (3.1 - z * .65);
-    point.sx = width * .5 + x * (expanded ? scale : width * .40) * depth;
+    point.sx = width * .5 + x * scale * depth;
     point.sy = height * .57 + (z * pitch - point.y * relief) * scale * depth;
     return point;
   }
@@ -270,9 +271,19 @@ SitePage.register('relay-field', scope => {
   });
   scope.on(send, 'click', exchange);
   toggle.hidden = false;
+  function hideDetails() {
+    if (!expanded) controls.hidden = viewport.hidden = true;
+  }
+  scope.on(details, 'transitionend', event => {
+    if (event.target === details && event.propertyName === 'grid-template-rows') hideDetails();
+  });
   scope.on(toggle, 'click', () => {
     expanded = !expanded;
+    section.dispatchEvent(new CustomEvent('home-network-resize', { bubbles: true, detail: { expanded } }));
+    if (expanded) controls.hidden = viewport.hidden = false;
     section.classList.toggle('is-expanded', expanded);
+    details.inert = !expanded;
+    if (reduce.matches) hideDetails();
     toggle.setAttribute('aria-expanded', String(expanded));
     toggle.title = expanded ? '收起传输图' : '展开传输图';
     toggle.setAttribute('aria-label', toggle.title);
@@ -319,7 +330,7 @@ SitePage.register('relay-field', scope => {
     wake();
   });
   scope.on(document, 'visibilitychange', () => { park(); wake(); });
-  scope.on(reduce, 'change', () => { syncMotionControls(); park(); wake(); });
+  scope.on(reduce, 'change', () => { if (reduce.matches) hideDetails(); syncMotionControls(); park(); wake(); });
   const sizing = new ResizeObserver(resize);
   const intersection = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
@@ -332,7 +343,6 @@ SitePage.register('relay-field', scope => {
     wake();
   }, { threshold: [0, .28] });
   scope.cleanup(() => { park(); sizing.disconnect(); intersection.disconnect(); });
-  controls.hidden = viewport.hidden = false;
   syncMotionControls();
   sizing.observe(viewport);
   intersection.observe(viewport);

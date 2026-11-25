@@ -63,7 +63,7 @@ def check_scroll_anchors(page, label):
     # Jump between scroll positions in the same task. Canvas rendering cannot
     # run in between, so the existing deposits must move with their cards.
     check(label, page.evaluate('''() => {
-      const surfaces = [...document.querySelectorAll('canvas.weather-panel-surface:not([hidden])')];
+      const surfaces = [...document.querySelectorAll('canvas.weather-panel-surface:not(.weather-panel-snow-motion):not([hidden])')];
       const read = () => surfaces.map(c => {
         const box = c.getBoundingClientRect(), panel = c.parentNode.getBoundingClientRect();
         return {top: box.top, left: box.left, dy: box.top - panel.top, dx: box.left - panel.left};
@@ -85,6 +85,63 @@ def check_scroll_anchors(page, label):
       }
       return passed;
     }'''))
+
+def check_mct_motion(page, tag):
+    section = page.locator('.home-network')
+    motion = section.locator('.weather-panel-snow-motion')
+    def rect():
+        return section.evaluate("""e=>{const r=e.getBoundingClientRect();
+            return {top:r.top+scrollY,width:r.width,height:r.height};}""")
+    def sample_toggle():
+        return section.evaluate("""e=>new Promise(resolve=>{
+          const frames=[], start=performance.now();
+          e.querySelector('.home-network-toggle').click();
+          function record(now){
+            const r=e.getBoundingClientRect();
+            const snow=e.querySelector('.weather-panel-snow-motion:not([hidden])');
+            frames.push({height:r.height,top:r.top+scrollY,
+              snow:snow?snow.getBoundingClientRect().top+scrollY:null});
+            if(now-start<950)requestAnimationFrame(record);else resolve(frames);
+          }
+          requestAnimationFrame(record);
+        })""")
+
+    # Seed the actual impact handler so the test doesn't depend on a lucky snowfall.
+    section.evaluate("""e=>{
+      const position=e.getBoundingClientRect().top+scrollY;
+      scrollTo({top:position-innerHeight*.62,behavior:'instant'});
+      testSurface.invalidate();
+      testSurface.measure();
+      const r=e.getBoundingClientRect();
+      for(let i=2;i<95;i++){
+        const x=r.x+2+i/97*(r.width-4);
+        testSurface.collide({x,y:r.top+25,size:3},x,r.top-30);
+      }
+    }""")
+    page.clock.run_for(100)
+    closed = rect()
+    opening = sample_toggle()
+    page.clock.run_for(450)
+    motion.wait_for(state='detached')
+    opened = rect()
+    check(tag + ' card opens through an intermediate height and position',
+          any(closed['height']+4 < frame['height'] < opened['height']-4
+              and closed['top']+4 < frame['top'] < opened['top']-4 for frame in opening))
+    snowfall = [frame['snow'] for frame in opening if frame['snow'] is not None]
+    check(tag + ' old snow falls and lands on the new roof',
+          bool(snowfall) and max(snowfall) > snowfall[0]+10
+          and int(section.get_attribute('data-snow-landings') or 0) > 0)
+    check_scroll_anchors(page, tag + ' snow follows the expanded MCT card')
+    closing = sample_toggle()
+    check(tag + ' card closes progressively and sheds snow',
+          any(closed['height']+4 < frame['height'] < opened['height']-4 for frame in closing)
+          and any(frame['snow'] is not None for frame in closing))
+    motion.wait_for(state='detached')
+    section.locator('.home-network-viewport').wait_for(state='hidden')
+    page.locator('.home-console').evaluate("e=>Promise.all(e.getAnimations().filter(a=>a.transitionProperty==='height').map(a=>a.finished.catch(()=>{})))")
+    restored = rect()
+    check(tag + ' compact card returns to its original geometry',
+          all(abs(restored[k] - closed[k]) < 1 for k in closed))
 
 try:
     with sync_playwright() as p:
@@ -135,11 +192,7 @@ try:
                 weather(page, 'snow')
                 page.clock.run_for(1200)
                 check_scroll_anchors(page, f'{width}@{dpr} snow stays attached during scroll jumps')
-                toggle = page.locator('.home-network-toggle')
-                toggle.evaluate('e=>e.click()')
-                page.clock.run_for(700)
-                check_scroll_anchors(page, f'{width}@{dpr} snow follows the expanded MCT card')
-                toggle.evaluate('e=>e.click()')
+                check_mct_motion(page, f'{width}@{dpr}')
                 weather(page, 'rain')
                 page.clock.run_for(800)
             page.locator('[data-live2d-size]').first.evaluate('e=>e.click()')

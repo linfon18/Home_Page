@@ -50,24 +50,28 @@ function home(c,entries){return `<section class="home-stage" aria-labelledby="ho
     </section>
   </div>
   <section class="home-network pane" aria-label="MinecraftConnectTool">
-    <a class="home-project-preview" href="/projects/">
-      <span class="home-network-icon" aria-hidden="true">${i('cube')}<img class="mct-home-icon" src="https://mct.loft.games/assets/favicon.ico" width="32" height="32" alt="" hidden></span>
-      <h2>MinecraftConnectTool</h2>
-    </a>
     <header class="home-network-header">
+      <a class="home-project-preview" href="/projects/">
+        <span class="home-network-icon" aria-hidden="true">${i('cube')}<img class="mct-home-icon" src="https://mct.loft.games/assets/favicon.ico" width="32" height="32" alt="" hidden></span>
+        <h2>MinecraftConnectTool</h2>
+      </a>
       <a href="/projects/" class="home-network-link"><span class="home-network-icon" aria-hidden="true">${i('cube')}<img class="mct-home-icon" src="https://mct.loft.games/assets/favicon.ico" width="32" height="32" alt="" hidden></span><h2 id="home-project-title">MinecraftConnectTool</h2>${i('arrow')}</a>
       <button type="button" class="home-network-toggle" aria-label="展开传输图" title="展开传输图" aria-expanded="false" aria-controls="home-network-map" hidden>${i('down')}</button>
-      <div class="home-network-controls" role="group" aria-label="联机路线" hidden>
-        <button type="button" data-relay="direct" aria-pressed="true">OpenP2P</button>
-        <button type="button" data-relay="relay" aria-pressed="false">Link</button>
-        <button type="button" data-relay="mesh" aria-pressed="false">EasyTier</button>
-      </div>
     </header>
-    <div class="home-network-viewport" id="home-network-map" hidden>
-      <canvas class="relay-field" aria-label="联机路线示意图"></canvas>
-      <div class="home-network-action"><button type="button" data-relay-send aria-label="发送一组演示数据包">发包 ${i('right')}</button></div>
+    <div class="home-network-details" id="home-network-map" inert>
+      <div class="home-network-clip">
+        <div class="home-network-controls" role="group" aria-label="联机路线" hidden>
+          <button type="button" data-relay="direct" aria-pressed="true">OpenP2P</button>
+          <button type="button" data-relay="relay" aria-pressed="false">Link</button>
+          <button type="button" data-relay="mesh" aria-pressed="false">EasyTier</button>
+        </div>
+        <div class="home-network-viewport" hidden>
+          <canvas class="relay-field" aria-label="联机路线示意图"></canvas>
+          <div class="home-network-action"><button type="button" data-relay-send aria-label="发送一组演示数据包">发包 ${i('right')}</button></div>
+        </div>
+        <footer class="home-network-caption"><p data-relay-description>和朋友联机时用的 Minecraft 工具。</p><span data-relay-hint hidden>拖动切换视角</span></footer>
+      </div>
     </div>
-    <footer class="home-network-caption"><p data-relay-description>和朋友联机时用的 Minecraft 工具。</p><span data-relay-hint hidden>拖动切换视角</span></footer>
   </section>
 </section>
 <section class="home-writing" aria-labelledby="recent-title"><header><h2 id="recent-title">最近更新</h2><div><a href="/articles/">文章 ${i('right')}</a><a href="/notes/">笔记 ${i('right')}</a></div></header><div class="home-entries">${entries.slice(0,2).map(n=>`<a class="home-entry pane reveal" href="${e(n.url)}"><div class="home-entry-meta"><span>${n.type==='posts'?'文章':'笔记'} / ${e(n.category)}</span><span>${n.minutes} 分钟${n.date?' · '+e(n.date):''}</span></div><h3>${e(n.title)} ${i('arrow')}</h3><p>${e(n.description)}</p><div class="home-entry-tags">${n.tags.slice(0,3).map(t=>'<span># '+e(t)+'</span>').join('')}</div></a>`).join('')}</div></section>`;}

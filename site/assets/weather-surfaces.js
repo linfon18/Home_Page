@@ -5,7 +5,7 @@
   window.createWeatherSurfaces=function(canvas,compact){
     const layer=document.createElement('div');layer.className='weather-surfaces';layer.setAttribute('aria-hidden','true');layer.hidden=true;document.body.append(layer);
     let dragon=null,umbrella=null,dirty=true,splashes=[],effect='clear',active=false,signature='';
-    let lastReport=0,movingUntil=0,umbrellaHits=0,umbrellaRunoffs=0,canopyDrops=[];
+    let lastReport=0,movingUntil=0,umbrellaHits=0,umbrellaRunoffHits=0,umbrellaRunoffs=0,canopyDrops=[];
     const canopyWater=[0,0];
     function resetOutlet(o){Object.assign(o,{amount:0,delay:0,pendant:0,feed:0,flow:0,connected:false,pinching:0,released:0,threshold:rand(1.45,1.85)});}
     // Sample the unchanged wallpaper once per viewport/theme, never per droplet.
@@ -75,22 +75,31 @@
         if(t>=0&&t<=1&&u>=0&&u<=1)return {x:oldX+dx*t,y:oldY+dy*t,t,side:i<=points.length/2?0:1};
       }return null;
     }
-    function collide(p,oldX,oldY){
+    function collide(p,oldX,oldY,source=null){
       const canopy=canopyHit(p,oldX,oldY);
       let nearest=null, owner=null;
       if(effect!=='hail'&&p.y>oldY)for(const panel of panels){
+        if(panel.node===source)continue;
         const hit=panel.crossing(p,oldX,oldY);
         if(hit&&(!nearest||hit.t<nearest.t)){nearest=hit;owner=panel;}
       }
       if(nearest&&(!canopy||nearest.t<=canopy.t)){owner.deposit(nearest,p.size);return true;}
       if(canopy){
-        umbrellaHits++;umbrella.impact=Math.min(1,umbrella.impact+(effect==='hail'?.4:.025));
-        if(effect==='rain'){splash(splashes,canopy.x,canopy.y,2);canopyWater[canopy.side]+=.1+p.size*.04;}
-        if(effect==='snow')umbrella.snow=Math.min(3,umbrella.snow+p.size*.12);
+        touchCanopy(canopy,p.size,source);
         if(effect==='hail'){p.x=canopy.x;p.y=canopy.y-2;p.speed=-rand(90,180);p.vx=canopy.side?rand(10,25):rand(-25,-10);p.bounce=2;}
         return true;
       }
       return false;
+    }
+    function touchCanopy(hit,size,source){
+      umbrellaHits++;
+      if(source&&effect==='rain')umbrellaRunoffHits++;
+      umbrella.impact=Math.min(1,umbrella.impact+(effect==='hail' ? .4 : source ? .16 : .025));
+      if(effect==='rain'){
+        splash(splashes,hit.x,hit.y,source?6:2);
+        canopyWater[hit.side]+=source ? .25+size*.12 : .1+size*.04;
+      }
+      if(effect==='snow')umbrella.snow=Math.min(3,umbrella.snow+size*.12);
     }
     function rounded(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
     function clip(ctx){
@@ -106,9 +115,14 @@
       node.append(surface);
       const pad=25;
       let roof=null,water=[],drops=[],snow=[],film=[],spray=[],hits=0,snowHits=0,runoffs=0;
+      let snowChunks=[],powder=[],snowMotion=null,snowLandings=0;
       const outlets=[{side:-1},{side:1}];
       outlets.forEach(resetOutlet);
-      function clear(){water=[];drops=[];film=[];snow=[];spray=[];outlets.forEach(resetOutlet);surface.hidden=true;surface.width=0;}
+      function clear(){
+        water=[];drops=[];film=[];snow=[];spray=[];snowChunks=[];powder=[];
+        snowMotion?.remove();snowMotion=null;
+        outlets.forEach(resetOutlet);surface.hidden=true;surface.width=0;
+      }
       function measurePanel(){
         const b=node.getBoundingClientRect();
         if(!b.width||!b.height){roof=null;return;}
@@ -241,7 +255,14 @@
         }
         if(o.flow<.65)pendant(ctx,at,o,time);
       }
-      drops=drops.filter(p=>{p.age+=dt;p.vy+=dt*780;p.y+=dt*p.vy;if(p.age>.8)return false;lens(ctx,roof.x+p.x,roof.y+p.y,p.rx*(1-.22*Math.min(1,p.age*3)),p.rx*(1+Math.min(.8,p.vy/380)));return true;});
+      drops=drops.filter(p=>{
+        const x=roof.x+p.x,oldY=roof.y+p.y;
+        p.age+=dt;p.y+=p.vy*dt+390*dt*dt;p.vy+=dt*780;
+        const y=roof.y+p.y;
+        if(p.age>.8||collide({x,y,size:p.rx},x,oldY,node))return false;
+        lens(ctx,x,y,p.rx*(1-.22*Math.min(1,p.age*3)),p.rx*(1+Math.min(.8,p.vy/380)));
+        return true;
+      });
       ctx.translate(roof.x,roof.y);
       spray=drawSplashes(ctx,spray,dt);
       ctx.restore();
@@ -249,6 +270,7 @@
     function drawPanel(dt,time,dark){
       if(!roof||!surfaceCtx||!['rain','snow'].includes(effect))return;
       const rainfall=effect==='rain';
+      if(!rainfall&&(snowChunks.length||powder.length||snowMotion))drawFallingSnow(dt);
       const width=Math.ceil(roof.w)+pad*2;
       // Round up to avoid reallocating the backing store throughout a height transition.
       const height=rainfall?Math.ceil((roof.h+pad+400)/64)*64:Math.ceil(roof.r)+pad+4;
@@ -269,10 +291,152 @@
       else drawSnow(surfaceCtx,dt);
       surface.hidden=false;
     }
-    function report(){return {rainHits:hits,snowHits,runoffs,waterStreams:water.filter(p=>!p.spent).length,waterFilm:film.reduce((a,b)=>a+b,0).toFixed(2),waterPendant:outlets.map(o=>o.pendant.toFixed(2)).join(','),waterFlow:outlets.map(o=>o.flow.toFixed(2)).join(','),snowDepth:(snow.length?Math.max(...snow):0).toFixed(2)};}
-    return {node,measure:measurePanel,mask,crossing,deposit,clear,draw:drawPanel,report,remove:()=>surface.remove()};
+    function report(){return {rainHits:hits,snowHits,snowLandings,runoffs,waterStreams:water.filter(p=>!p.spent).length,waterFilm:film.reduce((a,b)=>a+b,0).toFixed(2),waterPendant:outlets.map(o=>o.pendant.toFixed(2)).join(','),waterFlow:outlets.map(o=>o.flow.toFixed(2)).join(','),snowDepth:(snow.length?Math.max(...snow):0).toFixed(2)};}
+    return {node,measure:measurePanel,mask,crossing,deposit,clear,draw:drawPanel,report,moveSnow,remove(){
+      surface.remove();
+      snowMotion?.remove();
+    }};
+    function scatter(x,y,amount,direction=0){
+      for(let i=0;i<amount&&powder.length<84;i++){
+        powder.push({
+          x:x+rand(-4,4),y:y+rand(-2,0),vx:direction*rand(15,50)+rand(-23,23),
+          vy:rand(-52,-16),size:rand(.8,2.5),age:0,life:rand(.32,.65)
+        });
+      }
+    }
+    function moveSnow(expanding){
+      if(!roof||!snow.length)return;
+      const dx=scrollX,dy=scrollY,step=roof.w/(snow.length-1);
+      if(!expanding){
+        const first=snow.findIndex(value=>value>.45);
+        if(first===-1)return;
+        let last=snow.length-1;
+        while(last>first&&snow[last]<=.45)last--;
+        for(const side of [-1,1]){
+          const i=side<0?first:last;
+          const x=roof.x+i*step;
+          scatter(x+dx,top(x)+dy-snow[i]*.55,7,side);
+          snow[i]*=.8;
+        }
+        return;
+      }
+      // Detached snow keeps the old roof's page coordinates as the card moves.
+      let index=0;
+      while(index<snow.length-1&&snowChunks.length<64){
+        const end=Math.min(snow.length-1,index+Math.round(rand(2,5)));
+        const x=roof.x+(index+end)*step/2;
+        const y=top(x);
+        const samples=snow.slice(index,end+1).map((depth,i)=>{
+          const sampleX=roof.x+(index+i)*step;
+          const taper=Math.min(1,(index+i)/2,(snow.length-1-index-i)/2);
+          return {x:sampleX-x,y:top(sampleX)-y,depth:depth*taper};
+        });
+        if(samples.some(sample=>sample.depth>.45)){
+          snowChunks.push({x:x+dx,y:y+dy,vx:rand(-5,5),vy:0,
+            wait:rand(0,.07),age:0,released:false,lastRoof:y+dy,samples});
+        }
+        index=end;
+      }
+      snow.fill(0);
+    }
+    function drawFallingSnow(dt){
+      const dx=scrollX,dy=scrollY,step=roof.w/(snow.length-1);
+      snowChunks=snowChunks.filter(chunk=>{
+        chunk.age+=dt;
+        if(chunk.age>1.5)return false;
+        const localX=chunk.x-dx;
+        const supported=localX>=roof.x&&localX<=roof.x+roof.w;
+        const support=supported?top(localX)+dy-depth(localX)*.64:Infinity;
+        if(!chunk.released){
+          if(chunk.age<chunk.wait||support-chunk.y<2&&chunk.age<.16)return true;
+          chunk.released=true;
+        }
+        const oldX=chunk.x,oldY=chunk.y;
+        chunk.x+=chunk.vx*dt;
+        chunk.y+=chunk.vy*dt+370*dt*dt;
+        chunk.vy+=740*dt;
+        const hit=canopyHit({x:chunk.x-dx,y:chunk.y-dy},oldX-dx,oldY-dy);
+        const lands=supported&&chunk.y>=support&&oldY<=Math.max(support,chunk.lastRoof)+2;
+        if(hit&&(!lands||hit.y+dy<support)){
+          touchCanopy(hit,4,node);
+          scatter(hit.x+dx,hit.y+dy,5,hit.side?1:-1);
+          return false;
+        }
+        chunk.lastRoof=support;
+        if(!lands)return true;
+        for(const sample of chunk.samples){
+          const x=chunk.x+sample.x-dx;
+          if(x<roof.x||x>roof.x+roof.w)continue;
+          const i=Math.round((x-roof.x)/step);
+          snow[i]=Math.min(12,snow[i]+sample.depth*.86);
+        }
+        snowLandings++;
+        if(chunk.vy>65)scatter(chunk.x,support-1,3);
+        return false;
+      });
+      powder=powder.filter(bit=>{
+        bit.age+=dt;
+        bit.x+=bit.vx*dt;bit.y+=bit.vy*dt+180*dt*dt;bit.vy+=360*dt;
+        return bit.age<bit.life;
+      });
+      if(!snowChunks.length&&!powder.length){snowMotion?.remove();snowMotion=null;return;}
+      let left=Infinity,topEdge=Infinity,right=-Infinity,bottom=-Infinity;
+      function include(x,y,margin){
+        left=Math.min(left,x-margin);right=Math.max(right,x+margin);
+        topEdge=Math.min(topEdge,y-margin);bottom=Math.max(bottom,y+margin);
+      }
+      for(const chunk of snowChunks)for(const sample of chunk.samples)
+        include(chunk.x+sample.x,chunk.y+sample.y,sample.depth+3);
+      for(const bit of powder)include(bit.x,bit.y,4);
+      if(right<dx||left>dx+innerWidth||bottom<dy||topEdge>dy+innerHeight){
+        if(snowMotion)snowMotion.hidden=true;
+        return;
+      }
+      if(!snowMotion){
+        snowMotion=document.createElement('canvas');
+        snowMotion.className='weather-panel-surface weather-panel-snow-motion';
+        snowMotion.setAttribute('aria-hidden','true');
+        node.append(snowMotion);
+      }
+      const width=Math.ceil((right-left)/48)*48,height=Math.ceil((bottom-topEdge)/48)*48;
+      const ratio=Math.min(devicePixelRatio||1,1.5);
+      const w=Math.round(width*ratio),h=Math.round(height*ratio);
+      if(snowMotion.width!==w||snowMotion.height!==h){snowMotion.width=w;snowMotion.height=h;}
+      Object.assign(snowMotion.style,{
+        width:width+'px',height:height+'px',
+        left:(left-dx-roof.x-node.clientLeft)+'px',top:(topEdge-dy-roof.y-node.clientTop)+'px'
+      });
+      snowMotion.hidden=false;
+      const ctx=snowMotion.getContext('2d');
+      ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,w,h);
+      ctx.setTransform(w/width,0,0,h/height,(dx-left)*w/width,(dy-topEdge)*h/height);
+      for(const panel of panels)panel.mask(ctx);
+      for(const chunk of snowChunks){
+        const x=chunk.x-dx,y=chunk.y-dy;
+        const gradient=ctx.createLinearGradient(0,y-12,0,y+4);
+        gradient.addColorStop(0,'#fff');gradient.addColorStop(1,'#c5d8e6');
+        ctx.fillStyle=gradient;ctx.beginPath();
+        chunk.samples.forEach((sample,i)=>{
+          const edge=i===0||i===chunk.samples.length-1;
+          const pointY=y+sample.y-sample.depth*(edge?.67:1);
+          if(i)ctx.lineTo(x+sample.x,pointY);else ctx.moveTo(x+sample.x,pointY);
+        });
+        for(let i=chunk.samples.length-1;i>=0;i--){
+          const s=chunk.samples[i];
+          ctx.lineTo(x+s.x,y+s.y+Math.min(1.5,s.depth*.25));
+        }
+        ctx.closePath();ctx.fill();
+      }
+      ctx.fillStyle='#edf7ff';
+      for(const bit of powder){
+        ctx.globalAlpha=Math.min(1,(1-bit.age/bit.life)*1.6)*.85;
+        ctx.beginPath();ctx.arc(bit.x-dx,bit.y-dy,bit.size,0,tau);ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    }
     function drawSnow(ctx,dt){
       for(let i=0;i<snow.length;i++)snow[i]=Math.min(12,snow[i]+dt*.11);
+      if(snowChunks.length&&!snow.some(value=>value>.18))return;
       ctx.save();ctx.shadowColor='rgba(12,32,52,.25)';ctx.shadowBlur=2;ctx.shadowOffsetY=1;
       const g=ctx.createLinearGradient(0,roof.y-13,0,roof.y+3);g.addColorStop(0,'#fff');g.addColorStop(1,'#c5d8e6');ctx.fillStyle=g;ctx.beginPath();
       for(let i=0;i<snow.length;i++){const x=roof.x+i/(snow.length-1)*roof.w,edge=Math.min(1,i/2,(snow.length-1-i)/2),y=top(x)-snow[i]*edge*(.92+.08*Math.sin(i*2.4));if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);}
@@ -294,11 +458,20 @@
         lastReport=time;
         for(const panel of panels)Object.assign(panel.node.matches('.home-console')?canvas.dataset:panel.node.dataset,panel.report());
         canvas.dataset.umbrellaHits=umbrellaHits;canvas.dataset.umbrellaRunoffs=umbrellaRunoffs;
+        canvas.dataset.umbrellaRunoffHits=umbrellaRunoffHits;
         canvas.dataset.shelter=panels.some(p=>p.node.matches('.home-console'))?'terminal':'none';
       }
     }
     function invalidate(){dirty=true;}
     addEventListener('scroll',invalidate,{passive:true});addEventListener('resize',invalidate);addEventListener('site-viewport',invalidate);
+    document.addEventListener('home-network-resize',event=>{
+      if(!active||(effect!=='snow'&&effect!=='rain'))return;
+      const panel=panels.find(item=>item.node===event.target);
+      if(!panel)return;
+      if(effect==='snow'){panel.measure();panel.moveSnow(event.detail.expanded);}
+      movingUntil=Math.max(movingUntil,performance.now()+520);
+      invalidate();
+    });
     let settleTimer=0;
     function pageReady(){bind();movingUntil=performance.now()+450;clearTimeout(settleTimer);settleTimer=setTimeout(invalidate,460);}
     document.addEventListener('terminal-catastrophe',()=>{movingUntil=performance.now()+2100;clearTimeout(settleTimer);settleTimer=setTimeout(invalidate,2110);});

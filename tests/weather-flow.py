@@ -60,6 +60,21 @@ with sync_playwright() as p:
           ctx.fillRect(0,0,1000,800);ctx.restore();
           const alpha=y=>ctx.getImageData(435,y,1,1).data[3];
           checks['both interiors dry with rain between']=alpha(210)===0&&alpha(505)>0&&alpha(600)===0;
+          const dragon=document.createElement('div');
+          dragon.className='live2d-widget';
+          dragon._weatherShelter={
+            x:735,w:90,bottom:757,scale:1,impact:0,
+            curve:Array.from({length:17},(_,i)=>({x:735+i*90/16,y:735+22*((i-8)/8)**2}))
+          };
+          document.body.append(dragon);
+          s.measure();
+          for(let i=0;i<900;i++){
+            const x=495+Math.random()*265;
+            s.collide({x,y:526,size:2.6},x,510);
+            ctx.clearRect(0,0,1000,800);time+=1/30;s.draw(ctx,1/30,time,true);
+          }
+          checks['card runoff hits the umbrella and drains from its eaves']=
+            +c.dataset.umbrellaRunoffHits>0&&+c.dataset.umbrellaRunoffs>0&&dragon._weatherShelter.impact>0;
           return {checks,firstDrop:low[firstDrop],lowCount,high:high[high.length-1],dry};
         }''')
         print(json.dumps(result, indent=2))
