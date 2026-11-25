@@ -14,19 +14,19 @@
     const period = profile.querySelector('.name-period');
     const body = pet.querySelector('.home-pet-body');
     const dockLinks = Array.from(profile.querySelectorAll('.home-buttons a'));
-    let bounds, point, travel, shape, timer, pressed, ignoreClick = false;
-    let flight, flightFrame = 0;
+    let bounds, point, shape, timer, pressed, ignoreClick = false;
+    let flight, flightFrame = 0, dockFrame = 0, dockUntil = 0;
     let docks = [], docked = null;
     let visible = false, waiting = document.documentElement.dataset.homeVisit === 'first';
-    let idleBag = [], lastIdle, playIndex = 0, lastLook = 0, visits = 0;
+    let idleBag = [], lastIdle, playIndex = 0, lastLook = 0, visits = 0, patrolRight = false;
     const sparks = new Set();
 
     const pose = name => { pet.dataset.pose = name; };
     const mood = name => { pet.dataset.mood = name; };
     const hitRadius = 18;
     const ballRadius = 8;
-    const wallInset = 16;
-    const gravity = 1500;
+    const wallInset = 12;
+    const gravity = 2000;
     const dockContains = (dock, x) => x >= dock.left && x <= dock.right;
     const shift = ({ x, y }) => `translate3d(${x - hitRadius}px,${y - hitRadius}px,0)`;
     const groundX = x => clamp(x, bounds.left, bounds.right);
@@ -36,39 +36,15 @@
       point = target;
       pet.style.transform = shift(target);
     }
-    function currentPoint() {
-      if (!travel) return point;
-      const matrix = new DOMMatrixReadOnly(getComputedStyle(pet).transform);
-      return { x: matrix.m41 + hitRadius, y: matrix.m42 + hitRadius };
-    }
     function cancelMotion() {
       clearTimeout(timer);
       cancelAnimationFrame(flightFrame);
       flight = null;
       flightFrame = 0;
-      if (travel) {
-        place(currentPoint());
-        travel.cancel();
-        travel = null;
-      }
       if (shape) {
         shape.cancel();
         shape = null;
       }
-    }
-    function move(frames, duration, done) {
-      const end = frames[frames.length - 1];
-      const animation = pet.animate(frames.map(frame => ({
-        transform: shift(frame), offset: frame.offset, easing: frame.easing
-      })), { duration, fill: 'forwards' });
-      travel = animation;
-      animation.onfinish = () => {
-        if (travel !== animation) return;
-        place(end);
-        travel = null;
-        animation.cancel();
-        if (done) done();
-      };
     }
     function form(transforms, duration, easing = 'ease-in-out') {
       if (shape) shape.cancel();
@@ -99,112 +75,154 @@
       if (visible && able()) timer = setTimeout(explore, delay);
     }
     function rest(delay) {
-      docked = docks.find(dock => point.y === dock.y && dockContains(dock, point.x)) || null;
+      const dock = docks.find(dock => Math.abs(point.y - dock.y) < .5 && dockContains(dock, point.x));
+      docked = dock ? { ...dock, fraction: (point.x - dock.center) / dock.halfWidth } : null;
       pet.toggleAttribute('data-perched', Boolean(docked));
+      if (docked) {
+        if (shape) { shape.cancel(); shape = null; }
+        syncDock();
+        if (docked) followDock();
+      }
       pose('rest');
       if (delay === undefined) mood('calm');
       schedule(docked ? range(1800, 2900) : delay);
     }
     function leaveDock() {
+      cancelAnimationFrame(dockFrame);
+      dockFrame = 0;
       docked = null;
       pet.removeAttribute('data-perched');
     }
+
+    function readDocks(box = area.getBoundingClientRect()) {
+      docks = dockLinks.map(link => {
+        const rect = link.getBoundingClientRect();
+        const radius = Math.min(rect.width / 2, rect.height / 2);
+        const top = rect.top - box.top;
+        const center = rect.left - box.left + rect.width / 2;
+        return { link, center, halfWidth: rect.width / 2,
+          left: center - rect.width / 2 + radius, right: center + rect.width / 2 - radius,
+          top, bottom: top + rect.height, radius, y: top - ballRadius };
+      }).filter(dock => dock.radius > 0 && dock.y >= bounds.top && dock.bottom < bounds.floor);
+    }
+    function syncDock() {
+      const dock = docks.find(candidate => candidate.link === docked.link);
+      if (!dock) { launch(); return; }
+      const x = clamp(dock.center + dock.halfWidth * docked.fraction, dock.left, dock.right);
+      if (point.x !== x || point.y !== dock.y) place({ x, y: dock.y });
+    }
+    function followDock() {
+      if (!docked) return;
+      dockUntil = performance.now() + 420;
+      if (dockFrame) return;
+      function track(now) {
+        if (!docked) { dockFrame = 0; return; }
+        readDocks();
+        syncDock();
+        dockFrame = docked && now < dockUntil ? requestAnimationFrame(track) : 0;
+      }
+      dockFrame = requestAnimationFrame(track);
+    }
     function openingDrop() {
       if (!point) return;
-      const from = point;
-      const x = groundX(from.x + range(17, 30));
-      const y = bounds.floor;
-      const distance = Math.max(0, y - from.y);
-      const descent = clamp(Math.sqrt(distance / 640) * 650, 150, 565);
-      const settle = () => rest(330);
-      move([from, { x, y }].map((frame, index) => ({
-        ...frame, easing: index ? undefined : 'cubic-bezier(.45,.05,.75,.48)'
-      })), descent, () => {
-        pose('bounce');
-        mood('playful');
-        burst(x, y + 8, 7);
-        form(['scale(1.35,.68)', 'scale(.86,1.16)', 'scale(1.22,.82)', 'scale(1)'], 490);
-        const bounce = clamp(distance * .13, 9, 24);
-        const nextX = groundX(x + 10);
-        move([
-          { x, y, offset: 0, easing: 'ease-out' },
-          { x: (x + nextX) / 2, y: y - bounce, offset: .32, easing: 'ease-in' },
-          { x: nextX, y, offset: .62, easing: 'ease-out' },
-          { x: nextX, y: y - bounce * .33, offset: .8, easing: 'ease-in' },
-          { x: nextX, y, offset: 1 }
-        ], 490, settle);
-      });
-      pose('fall');
-      form(['scale(.8,1.15)', 'scale(.84,1.2)', 'scale(1)'], descent);
+      launch(42, 0, 'fall');
     }
 
-    function launch(vx = 0, vy = 0) {
+    function launch(vx = 0, vy = 0, action) {
       cancelMotion();
       leaveDock();
       const thrown = Math.hypot(vx, vy) > 85;
-      pose(thrown ? 'throw' : 'drop');
-      mood(thrown ? 'playful' : 'curious');
-      flight = { vx, vy, last: performance.now(), lastImpact: -Infinity };
+      pose(action || (thrown ? 'throw' : 'drop'));
+      mood(action === 'patrol' || !thrown ? 'curious' : 'playful');
+      flight = { vx, vy, last: performance.now(), lastImpact: -Infinity, still: 0 };
       flightFrame = requestAnimationFrame(simulate);
+    }
+    // Closest point on a rounded rectangle expanded by the ball's radius.
+    function buttonContact(dock, x, y, previousX, previousY) {
+      const cx = clamp(x, dock.left, dock.right);
+      const cy = clamp(y, dock.top + dock.radius, dock.bottom - dock.radius);
+      const dx = x - cx, dy = y - cy;
+      const distance = Math.hypot(dx, dy);
+      const radius = dock.radius + ballRadius;
+      if (distance >= radius) return null;
+      if (distance > .001) return { nx: dx / distance, ny: dy / distance, depth: radius - distance };
+      // A drag or a moving button can start inside the inner rectangle.
+      const sides = [
+        { nx: -1, ny: 0, depth: x - dock.left + radius, prior: dock.left - previousX },
+        { nx: 1, ny: 0, depth: dock.right + radius - x, prior: previousX - dock.right },
+        { nx: 0, ny: -1, depth: y - dock.y, prior: dock.top - previousY },
+        { nx: 0, ny: 1, depth: dock.bottom + ballRadius - y, prior: previousY - dock.bottom }
+      ];
+      return sides.reduce((best, side) => side.prior > best.prior ? side : best);
     }
     function simulate(now) {
       if (!flight) return;
       if (!able()) { park(); return; }
+      if (point.y < bounds.floor - 20 || flight.vy < -120) readDocks();
       const elapsed = clamp((now - flight.last) / 1000, 0, .048);
       flight.last = now;
       let { x, y } = point;
       let { vx, vy } = flight;
-      let impact = 0, horizontal = false;
+      let impact = 0, horizontal = false, supported = false;
       // Small steps keep collisions stable when a display frame arrives late.
       const steps = Math.max(1, Math.ceil(elapsed * 160));
       const dt = elapsed / steps;
       for (let index = 0; index < steps; index++) {
         const previousX = x;
         const previousY = y;
-        const onDock = docks.some(dock => y === dock.y && dockContains(dock, x));
+        const onDock = docks.some(dock => Math.abs(y - dock.y) < .1 && dockContains(dock, x));
         const rolling = vy === 0 && (onDock || y >= bounds.floor);
-        vx *= Math.exp(-(rolling ? 4.4 : .65) * dt);
+        vx *= Math.exp(-(rolling ? 2.5 : .42) * dt);
         if (!rolling) vy += gravity * dt;
         x += vx * dt;
         y += vy * dt;
         if (x < bounds.left || x > bounds.right) {
           const edge = clamp(x, bounds.left, bounds.right);
-          x = edge + (edge - x) * .78;
+          x = edge;
           if (Math.abs(vx) > impact) { impact = Math.abs(vx); horizontal = true; }
-          vx *= -.78;
+          vx *= -.55;
         }
-        const dock = vy > 0 && y > previousY && docks.find(dock => {
-          if (previousY > dock.y || y < dock.y) return false;
-          const fraction = (dock.y - previousY) / (y - previousY);
-          return dockContains(dock, previousX + (x - previousX) * fraction);
-        });
-        if (y < bounds.top || y > bounds.floor || dock) {
-          const floor = Boolean(dock) || y > bounds.floor;
-          const edge = dock ? dock.y : floor ? bounds.floor : bounds.top;
+        for (const dock of docks) {
+          const hit = buttonContact(dock, x, y, previousX, previousY);
+          if (!hit) continue;
+          const { nx, ny, depth } = hit;
+          x += nx * depth;
+          y += ny * depth;
+          const approach = vx * nx + vy * ny;
+          if (approach < 0) {
+            const bounce = -approach > 115 ? .31 : 0;
+            vx -= (1 + bounce) * approach * nx;
+            vy -= (1 + bounce) * approach * ny;
+          }
+          if (ny < -.999 && Math.abs(vy) < 52) { y = dock.y; vy = 0; }
+          if (ny < -.3) supported = true;
+          if (-approach > impact) { impact = -approach; horizontal = Math.abs(nx) > .5; }
+        }
+        if (y < bounds.top || y > bounds.floor) {
+          const floor = y > bounds.floor;
+          const edge = floor ? bounds.floor : bounds.top;
           const speed = Math.abs(vy);
           if (speed > impact) { impact = speed; horizontal = false; }
-          if (floor && speed < 95) {
-            y = edge;
-            vy = 0;
-          } else {
-            const rebound = dock ? .42 : floor ? .59 : .73;
-            y = edge + (edge - y) * rebound;
-            vy *= -rebound;
-          }
-          if (floor) vx *= .84;
+          y = edge;
+          vy = floor && speed < 105 ? 0 : vy * (floor ? -.40 : -.34);
+          if (floor) vx *= .90;
         }
+        x = groundX(x);
       }
       Object.assign(flight, { vx, vy });
       place({ x, y });
       if (impact > 125 && now - flight.lastImpact > 120) {
         flight.lastImpact = now;
+        if (pet.dataset.pose === 'fall') pose('bounce');
         mood(impact > 420 ? 'startled' : 'playful');
         form(horizontal ? ['scale(.72,1.26)', 'scale(1.14,.89)', 'scale(1)'] :
           ['scale(1.27,.71)', 'scale(.9,1.17)', 'scale(1)'], 240);
         burst(x, y, impact > 420 ? 6 : 3);
       }
-      if (vy === 0 && Math.abs(vx) < 14 &&
-          (y >= bounds.floor || docks.some(dock => y === dock.y && dockContains(dock, x)))) {
+      const atRest = vy === 0 && Math.abs(vx) < 14 &&
+        (y >= bounds.floor || docks.some(dock => Math.abs(y - dock.y) < .5 && dockContains(dock, x)));
+      flight.still = supported && Math.hypot(vx, vy) < 35 ? flight.still + elapsed : 0;
+      if (atRest || flight.still > .16) {
         flight = null;
         flightFrame = 0;
         rest(600);
@@ -212,44 +230,10 @@
         flightFrame = requestAnimationFrame(simulate);
       }
     }
-    function visitDock(dock) {
-      if (!dock) return;
-      cancelMotion();
-      leaveDock();
-      pose('perch');
-      mood('curious');
-      const from = point;
-      const x = (dock.left + dock.right) / 2;
-      const apex = Math.max(bounds.top, Math.min(from.y, dock.y) - 25);
-      form(['scale(1.24,.78)', 'scale(.85,1.16)', 'scale(1)', 'scale(1.22,.82)', 'scale(1)'], 780);
-      move([
-        { ...from, offset: 0, easing: 'ease-out' },
-        { x: from.x + (x - from.x) * .35, y: apex, offset: .48, easing: 'ease-in-out' },
-        { x, y: dock.y, offset: 1 }
-      ], 780, rest);
-    }
-    function hop(target, height, done) {
-      const x = point.x, y = bounds.floor;
-      const destination = groundX(target);
-      form(['scale(1.3,.75)', 'scale(.83,1.21)', 'scale(1)', 'scale(1.25,.78)', 'scale(1)'], 500);
-      move([
-        { x, y, offset: 0, easing: 'ease-out' },
-        { x: (x + destination) / 2, y: y - height, offset: .48, easing: 'ease-in' },
-        { x: destination, y, offset: 1 }
-      ], 490, () => {
-        burst(destination, y + 10, 3);
-        done();
-      });
-    }
     function act(action) {
       if (docked) {
-        const other = docks.find(dock => dock !== docked);
-        if (other && (action === 'double-hop' || action === 'patrol')) {
-          visitDock(other);
-        } else {
-          const direction = (bounds.right - docked.right) > (docked.left - bounds.left) ? 1 : -1;
-          launch(300 * direction, -180);
-        }
+        const direction = (bounds.right - docked.right) > (docked.left - bounds.left) ? 1 : -1;
+        launch(250 * direction, -115, 'scoot');
         return;
       }
       cancelMotion();
@@ -258,34 +242,32 @@
         ['peek', 'listen', 'patrol'].includes(action) ? 'curious' : 'playful');
       const x = point.x, y = bounds.floor;
       if (point.y < y - 2) {
-        launch();
+        launch((point.x < (bounds.left + bounds.right) / 2 ? -1 : 1) * 165, -140, action);
         return;
       }
       const direction = x > (bounds.left + bounds.right) / 2 ? -1 : 1;
       const heading = Math.random() < .75 ? direction : -direction;
       switch (action) {
         case 'patrol': {
-          const target = groundX(x + direction * range(110, 195));
-          hop(x + (target - x) * .42, 21, () => hop(target, 15, rest));
+          patrolRight = !patrolRight;
+          const side = patrolRight ? bounds.right : bounds.left;
+          const toWall = Math.abs(side - x);
+          launch((side === bounds.left ? -1 : 1) * (toWall * 2.55 + 145), -38, action);
           break;
         }
         case 'roll':
         case 'scoot': {
-          const distance = action === 'roll' ? range(76, 138) : range(38, 64);
-          const target = groundX(x + heading * distance);
-          const spin = Math.sign(target - x) * 360;
-          form(['rotate(0deg) scale(1)', `rotate(${spin / 2}deg) scale(.94,1.08)`, `rotate(${spin}deg) scale(1)`], 720);
-          move([{ x, y, easing: 'ease-in-out' }, { x: target, y }], 720, rest);
+          launch(heading * (action === 'roll' ? range(235, 375) : range(135, 200)), 0, action);
           break;
         }
         case 'hop':
-          hop(x + heading * range(20, 55), 19, rest);
+          launch(heading * range(105, 155), -205, action);
           break;
         case 'double-hop':
-          hop(x + direction * 24, 26, () => hop(point.x + direction * 22, 20, rest));
+          launch(direction * 160, -255, action);
           break;
         case 'twirl':
-          form(['rotate(0deg)', 'scale(.76,1.2) rotate(180deg)', 'scale(1) rotate(360deg)'], 520);
+          form(['scale(1)', 'scale(.76,1.16)', 'scale(1.12,.93)', 'scale(1)'], 520);
           burst(x, y - 1, 7);
           timer = setTimeout(rest, 525);
           break;
@@ -309,10 +291,7 @@
       if (!able() || !visible) return;
       if (pressed) { schedule(350); return; }
       visits++;
-      if (!docked && docks.length && visits % 4 === 2) {
-        visitDock(docks[visits % 8 === 2 ? 0 : docks.length - 1]);
-        return;
-      }
+      if (!docked && visits % 4 === 2) { act('patrol'); return; }
       if (visits % 12 === 0) { act('doze'); return; }
       if (!idleBag.length) {
         idleBag = idleMoves.slice();
@@ -330,32 +309,15 @@
       const left = wallInset;
       const right = area.clientWidth - left;
       const floor = area.clientHeight - hitRadius;
-      const box = area.getBoundingClientRect();
-      const nextDocks = dockLinks.map(link => {
-        const rect = link.getBoundingClientRect();
-        return { link, left: Math.max(left, rect.left - box.left + 12),
-          right: Math.min(right, rect.right - box.left - 12), y: rect.top - box.top - ballRadius };
-      }).filter(dock => dock.left <= dock.right && dock.y >= wallInset && dock.y < floor);
-      const unchanged = bounds && bounds.right === right && bounds.floor === floor && nextDocks.length === docks.length &&
-        nextDocks.every((dock, index) =>
-        docks[index] && Math.abs(dock.y - docks[index].y) < .1 &&
-        Math.abs(dock.left - docks[index].left) < .1 && Math.abs(dock.right - docks[index].right) < .1);
-      if (unchanged) return;
-      const nextDock = docked && nextDocks.find(dock => dock.link === docked.link);
-      docks = nextDocks;
+      const unchanged = bounds && bounds.right === right && bounds.floor === floor;
       bounds = { left, right, top: wallInset, floor };
-      if (!pet.hidden && !pressed) {
-        if (nextDock) {
-          cancelMotion();
-          place({ x: clamp(point.x, nextDock.left, nextDock.right), y: nextDock.y });
-          rest();
-        } else if (flight) {
+      readDocks();
+      if (docked) syncDock();
+      if (unchanged) return;
+      if (!pet.hidden && !pressed && !docked) {
+        if (flight) {
           // Keep the current flight when expanding MCT animates the card's height.
           place({ x: groundX(point.x), y: clamp(point.y, bounds.top, floor) });
-        } else if (pet.dataset.pose === 'fall' || pet.dataset.pose === 'perch' || docked) {
-          cancelMotion();
-          place({ x: groundX(point.x), y: clamp(point.y, bounds.top, floor) });
-          launch();
         } else {
           cancelMotion();
           place({ x: groundX(point.x), y: floor });
@@ -435,14 +397,14 @@
       }
       const seconds = Math.max(16, last.time - first.time) / 1000;
       const vx = (last.x - first.x) / seconds, vy = (last.y - first.y) / seconds;
-      const scale = Math.min(1, 1650 / Math.max(1, Math.hypot(vx, vy))) * (1 - pause / 115);
-      return { vx: vx * scale, vy: vy * scale };
+      const scale = Math.min(1, 1020 / Math.max(1, Math.hypot(vx, vy))) * (1 - pause / 115);
+      return { vx: vx * scale, vy: Math.max(-580, vy * scale) };
     }
     scope.on(pet, 'pointerdown', event => {
       if (!event.isPrimary || event.button !== 0 || !able()) return;
       ignoreClick = false;
       const box = area.getBoundingClientRect();
-      const from = currentPoint();
+      const from = point;
       pressed = { id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false,
         offsetX: from.x - (event.clientX - box.left), offsetY: from.y - (event.clientY - box.top), samples: [] };
       recordPointer(pressed, event);
@@ -458,16 +420,27 @@
         leaveDock();
         pose('drag');
         mood('curious');
-        form(['scale(.83,1.16)', 'scale(1.15,.86)', 'scale(1)'], 390);
       }
       const box = area.getBoundingClientRect();
-      const x = groundX(event.clientX - box.left + pressed.offsetX);
-      const y = clamp(event.clientY - box.top + pressed.offsetY, bounds.top, bounds.floor);
-      const dock = docks.find(dock => dockContains(dock, x) && Math.abs(y - dock.y) < 7);
-      place({
-        x,
-        y: dock ? dock.y : y
-      });
+      readDocks(box);
+      let { x, y } = point;
+      const targetX = groundX(event.clientX - box.left + pressed.offsetX);
+      const targetY = clamp(event.clientY - box.top + pressed.offsetY, bounds.top, bounds.floor);
+      const steps = Math.max(1, Math.ceil(Math.hypot(targetX - x, targetY - y) / 5));
+      const dx = (targetX - x) / steps, dy = (targetY - y) / steps;
+      for (let index = 0; index < steps; index++) {
+        const previousX = x, previousY = y;
+        x += dx;
+        y += dy;
+        for (const dock of docks) {
+          const hit = buttonContact(dock, x, y, previousX, previousY);
+          if (hit) { x += hit.nx * hit.depth; y += hit.ny * hit.depth; }
+        }
+      }
+      x = groundX(x);
+      y = clamp(y, bounds.top, bounds.floor);
+      const dock = docks.find(dock => dockContains(dock, x) && y <= dock.y + .5 && y > dock.y - 5);
+      place({ x, y: dock ? dock.y : y });
     });
     function release(event) {
       if (!pressed || pressed.id !== event.pointerId) return;
@@ -490,7 +463,7 @@
     scope.on(pet, 'lostpointercapture', release);
     scope.on(profile, 'pointermove', event => {
       const now = performance.now();
-      if (!able() || event.pointerType !== 'mouse' || pressed || pet.hidden || travel || flight || now - lastLook < 330) return;
+      if (!able() || event.pointerType !== 'mouse' || pressed || pet.hidden || flight || now - lastLook < 330) return;
       const target = pet.getBoundingClientRect();
       const dx = event.clientX - (target.left + target.width / 2);
       const dy = event.clientY - (target.top + target.height / 2);
@@ -516,7 +489,12 @@
       else if (!visible && pet.dataset.pose === 'rest') clearTimeout(timer);
     });
     resize.observe(profile);
-    for (const link of dockLinks) resize.observe(link);
+    for (const link of dockLinks) {
+      resize.observe(link);
+      for (const event of ['pointerenter', 'pointerleave', 'pointerdown', 'pointerup', 'transitionrun']) {
+        scope.on(link, event, followDock);
+      }
+    }
     intersection.observe(pet);
     scope.cleanup(() => { park(); resize.disconnect(); intersection.disconnect(); });
     resume();

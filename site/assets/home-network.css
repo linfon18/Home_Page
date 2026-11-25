@@ -82,6 +82,7 @@
   cursor: grab;
   touch-action: none;
   pointer-events: auto;
+  transition: none;
 }
 .home-pet[hidden] { display: none; }
 .home-pet[data-perched] { pointer-events: none; }
