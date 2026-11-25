@@ -10,7 +10,7 @@ SitePage.register('console', scope => {
   input.id='terminal-command';input.autocomplete='off';input.spellcheck=false;input.setAttribute('autocapitalize','off');input.setAttribute('aria-label','终端命令');prompt.htmlFor=input.id;
   const submit=make('button','terminal-enter','↵');submit.type='submit';submit.setAttribute('aria-label','执行命令');
   const powerCurtain=make('div','terminal-power-curtain'),question=make('span','terminal-power-question','?');
-  const powerButton=make('button','terminal-power-button','PowerUp'),bootLog=make('div','terminal-boot-log');
+  const powerButton=make('button','terminal-power-button','启动虚拟机'),bootLog=make('div','terminal-boot-log');
   powerCurtain.hidden=powerButton.hidden=bootLog.hidden=true;
   powerButton.type='button';question.setAttribute('aria-hidden','true');
   powerCurtain.append(question,powerButton,bootLog);
@@ -238,13 +238,13 @@ SitePage.register('console', scope => {
   const kernelLog=[
     [45,
       '[    0.000000] Linux version 6.12.0-1-amd64 (debian-kernel@lists.debian.org) #1 SMP PREEMPT_DYNAMIC',
-      '[    0.000000] Command line: BOOT_IMAGE=/vmlinuz root=/dev/vda1 ro',
+      '[    0.000000] Command line: BOOT_IMAGE=/vmlinuz root=/dev/sda1 ro',
       '[    0.000000] BIOS-provided physical RAM map:',
       '[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable',
       '[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bffdffff] usable',
       '[    0.000000] NX (Execute Disable) protection: active',
-      '[    0.000000] Hypervisor detected: KVM',
-      '[    0.000002] kvm-clock: using sched offset of 1935012416 cycles',
+      '[    0.000000] Hypervisor detected: VMware',
+      '[    0.000000] DMI: VMware, Inc. VMware Virtual Platform',
       '[    0.002618] tsc: Detected 2592.000 MHz processor',
       '[    0.012118] ACPI: Core revision 20240827',
       '[    0.022597] x86/fpu: Supporting XSAVE feature 0x001: x87 floating point registers',
@@ -258,7 +258,7 @@ SitePage.register('console', scope => {
       '[    0.189882] NET: Registered PF_NETLINK/PF_ROUTE protocol family',
       '[    0.212025] audit: initializing netlink subsys (disabled)',
       '[    0.249687] PCI: Using configuration type 1 for base access',
-      '[    0.271346] pci 0000:00:02.0: [1234:1111] type 00 class 0x030000',
+      '[    0.271346] pci 0000:00:02.0: [15ad:0405] type 00 class 0x030000',
       '[    0.285457] PCI: CLS 64 bytes, default 64',
       '[    0.311761] ACPI: bus type USB registered',
       '[    0.311916] usbcore: registered new interface driver usbfs',
@@ -272,23 +272,24 @@ SitePage.register('console', scope => {
       '[    0.499755] xhci_hcd 0000:00:03.0: new USB bus registered, assigned bus number 1',
       '[    0.587519] Run /init as init process'],
     [85,
-      '[    0.614215] virtio-pci 0000:00:04.0: enabling device (0000 -> 0002)',
-      '[    0.646286] virtio_blk virtio0: [vda] 83886080 512-byte logical blocks (42.9 GB/40.0 GiB)',
-      '[    0.646992]  vda: vda1',
+      '[    0.614215] vmw_pvscsi 0000:00:04.0: enabling device (0000 -> 0002)',
+      '[    0.632139] scsi host0: VMware PVSCSI storage adapter',
+      '[    0.646286] sd 0:0:0:0: [sda] 83886080 512-byte logical blocks (42.9 GB/40.0 GiB)',
+      '[    0.646992]  sda: sda1',
       '[    0.667481] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input0',
-      '[    0.768339] virtio_net virtio1 ens3: renamed from eth0',
+      '[    0.768339] vmxnet3 0000:02:00.0 ens3: renamed from eth0',
       '[    0.912284] systemd-udevd: Using default interface naming scheme v257.',
       'Begin: Running /scripts/local-top ... done.',
       'Begin: Waiting for root file system ... done.'],
   ];
   const serviceLog=[
     [73,
-      'fsck.ext4: /dev/vda1: clean, 182064/2621440 files, 3880306/10485760 blocks',
-      '[    2.318760] EXT4-fs (vda1): mounted filesystem ro with ordered data mode.',
+      'fsck.ext4: /dev/sda1: clean, 182064/2621440 files, 3880306/10485760 blocks',
+      '[    2.318760] EXT4-fs (sda1): mounted filesystem ro with ordered data mode.',
       'Begin: Running /scripts/local-bottom ... done.',
       'Begin: Running /scripts/init-bottom ... done.',
       '[    2.681932] systemd[1]: systemd 257 running in system mode (+PAM +AUDIT +SELINUX).',
-      '[    2.682252] systemd[1]: Detected virtualization kvm.',
+      '[    2.682252] systemd[1]: Detected virtualization vmware.',
       '[    2.683595] systemd[1]: Hostname set to <debian>.',
       '[    2.741298] systemd[1]: Queued start job for default target Multi-User System.',
       '[  OK  ] Created slice system-getty.slice.',
@@ -300,7 +301,7 @@ SitePage.register('console', scope => {
       '         Starting Load Kernel Modules...',
       '         Starting Journal Service...',
       '         Starting Remount Root and Kernel File Systems...',
-      '[    3.178405] EXT4-fs (vda1): re-mounted r/w.',
+      '[    3.178405] EXT4-fs (sda1): re-mounted r/w.',
       '[  OK  ] Started Journal Service.',
       '[  OK  ] Finished Load Kernel Modules.',
       '[  OK  ] Finished Remount Root and Kernel File Systems.',
@@ -335,7 +336,11 @@ SitePage.register('console', scope => {
     powerCurtain.dataset.power='boot';
     powerButton.hidden=true;
     bootLog.dataset.stage='logo';
-    bootLog.replaceChildren(make('div','terminal-boot-title','PowerUp'));
+    const splash=make('div','terminal-vm-splash');
+    const progress=make('div','terminal-vm-progress');
+    progress.setAttribute('aria-hidden','true');
+    splash.append(make('div','terminal-boot-title','VMware'),progress);
+    bootLog.replaceChildren(splash);
     bootLog.hidden=false;
     const later=(next,delay)=>{powerTimer=setTimeout(next,delay);};
     function append(text){
@@ -382,11 +387,11 @@ SitePage.register('console', scope => {
       later(type,350);
     }
     function checkDisk(){
-      const row=append('fsck.ext4: /dev/vda1: checking inodes, blocks and sizes ...');
+      const row=append('fsck.ext4: /dev/sda1: checking inodes, blocks and sizes ...');
       const passes=['inodes, blocks and sizes','directory structure','directory connectivity','reference counts','group summary information'];
       let index=0;
       function pass(){
-        row.textContent='fsck.ext4: /dev/vda1: Pass '+(index+1)+' of 5: '+passes[index];
+        row.textContent='fsck.ext4: /dev/sda1: Pass '+(index+1)+' of 5: '+passes[index];
         index++;
         if(index<passes.length)later(pass,125+index*25);
         else later(()=>stream(serviceLog,login),240);
@@ -417,25 +422,25 @@ SitePage.register('console', scope => {
     }
     function post(){
       stage('post');
-      append('SeaBIOS · QEMU Standard PC (Q35 + ICH9)');
+      append('VMware Virtual Platform · Virtual BIOS');
       append('');
-      append('CPU: x86_64 KVM, 4 logical processors');
+      append('CPU: x86_64, 4 logical processors');
       const memory=append('Memory test: 0 MiB');
       let checked=0;
       function count(){
         checked+=1024;
         memory.textContent='Memory test: '+checked+' MiB'+(checked===4096?' OK':'');
         if(checked<4096){later(count,125);return;}
-        append('PCI: 00:04.0 VirtIO Block Device');
+        append('PCI: 00:04.0 VMware Paravirtual SCSI Controller');
         later(()=>{
-          append('Drive 0: QEMU HARDDISK, 40960 MiB');
+          append('SCSI 0:0: VMware Virtual disk, 40960 MiB');
           append('Booting from Hard Disk...');
           later(grub,470);
         },260);
       }
       later(count,160);
     }
-    later(post,580);
+    later(post,1050);
   }
   powerButton.addEventListener('click',startBoot);
   function powerOff(autoBoot){
@@ -444,13 +449,20 @@ SitePage.register('console', scope => {
     input.readOnly=true;
     toggle.disabled=true;
     panel.classList.add('is-shutting-down');
-    powerCurtain.dataset.power='question';
     powerCurtain.hidden=false;
-    powerTimer=setTimeout(()=>{
-      if(autoBoot){startBoot();return;}
-      powerCurtain.dataset.power='off';
-      powerButton.hidden=false;
-    },autoBoot?5000:2600);
+    const signalTime=matchMedia('(prefers-reduced-motion: reduce)').matches?0:480;
+    const showQuestion=()=>{
+      powerCurtain.dataset.power='question';
+      powerTimer=setTimeout(()=>{
+        if(autoBoot){startBoot();return;}
+        powerCurtain.dataset.power='off';
+        powerButton.hidden=false;
+      },(autoBoot?5000:3000)-signalTime);
+    };
+    if(!signalTime){showQuestion();return;}
+    powerCurtain.style.setProperty('--signal-duration',signalTime+'ms');
+    powerCurtain.dataset.power='signal';
+    powerTimer=setTimeout(showQuestion,signalTime);
   }
   function exitShell(args){
     const invalid=args.length&&!/^[+-]?\d+$/.test(args[0]);
@@ -506,7 +518,7 @@ SitePage.register('console', scope => {
       case 'gdb':debuggerState=null;lastDebuggerCommand='';mode='gdb';write('GNU gdb (Debian) 16.3\nReading symbols from ./build/probe...\nType "help" for commands.','linux-muted');break;
       case 'vi':case 'vim':openVim(arg);break;
       case 'free':write('               total     used      free   available\nMem:           3.8Gi    812Mi     1.6Gi       2.7Gi\nSwap:          1.0Gi       0B     1.0Gi');break;
-      case 'df':case 'du':write(cmd==='df'?'Filesystem  Size Used Avail Use% Mounted on\n/dev/vda1    40G  15G   23G  40% /':'48K\t.');break;
+      case 'df':case 'du':write(cmd==='df'?'Filesystem  Size Used Avail Use% Mounted on\n/dev/sda1    40G  15G   23G  40% /':'48K\t.');break;
       case 'ip':write('lo       UNKNOWN  127.0.0.1/8 ::1/128\nens3     UP       10.0.2.15/24');break;
       case 'ping':startPing(args);break;
       case 'dig':write(';; ANSWER SECTION:\nlocalhost.    0    IN    A    127.0.0.1\n;; Query time: 0 msec');break;

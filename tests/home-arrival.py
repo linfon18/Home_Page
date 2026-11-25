@@ -27,6 +27,20 @@ with ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(dist))) 
           window.openings=0;
           window.finishes=0;
           window.homeTransitions=0;
+          window.petSeed=null;
+          window.petMoves=[];
+          new MutationObserver(records => {
+            for(const {target:pet} of records) {
+              if(!pet.matches('.home-pet')) continue;
+              petMoves.push(pet.dataset.pose);
+              if(pet.dataset.pose !== 'seed') continue;
+              const dot=document.querySelector('.home-period-dot').getBoundingClientRect();
+              const body=pet.querySelector('.home-pet-body').getBoundingClientRect();
+              petSeed={x:body.x+body.width/2-dot.x-dot.width/2,
+                       y:body.y+body.height/2-dot.y-dot.height/2,
+                       width:body.width-dot.width};
+            }
+          }).observe(document,{subtree:true,attributes:true,attributeFilter:['data-pose']});
           document.addEventListener('animationstart', e => { if(e.animationName === 'arrival-console') openings++; });
           document.addEventListener('animationend', e => { if(e.animationName === 'arrival-console') finishes++; });
           window.addEventListener('site-page', () => requestAnimationFrame(() => {
@@ -47,17 +61,47 @@ with ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(dist))) 
         }""")
         page.wait_for_function('openings === 1 && finishes === 1')
         page.wait_for_function('document.documentElement.dataset.homeEntrance === "played"')
+        page.wait_for_function("""() => {
+          const pet=document.querySelector('.home-pet');
+          return pet.dataset.pose==='rest' && !pet.hasAttribute('data-perched') &&
+            pet.getBoundingClientRect().bottom >= pet.parentElement.getBoundingClientRect().bottom - 1;
+        }""")
+        assert page.evaluate("petMoves.includes('fall') && Object.values(petSeed).every(n=>Math.abs(n)<1)")
         page.emulate_media(reduced_motion='reduce')
         page.emulate_media(reduced_motion='no-preference')
         assert page.locator('html').get_attribute('data-home-entrance') == 'played'
         page.reload()
         assert page.evaluate('openings') == 0
         assert page.locator('.home-console').evaluate('e=>getComputedStyle(e).animationName') == 'none'
+        page.wait_for_function("petMoves.includes('fall')")
+        assert page.evaluate('Object.values(petSeed).every(n=>Math.abs(n)<1)')
         page.goto(base + '/about/')
         page.locator('.main-nav a[href="/"]').click()
         page.wait_for_selector('#home-name')
         page.wait_for_function('homeTransitions === 1')
         assert page.evaluate('openings') == 0
+        assert not page.evaluate('petMoves.includes("seed")')
+        # Drop the ball into the narrow gap between the two pill-shaped buttons.
+        pet = page.locator('.home-pet')
+        pet.scroll_into_view_if_needed()
+        x, y, exit_x, gap_x, above = page.evaluate("""() => {
+          const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+          const pet=rect('.home-pet'), card=rect('.home-profile');
+          const left=rect('.home-buttons a:first-child'), right=rect('.home-buttons a:last-child');
+          return [pet.x+18,pet.y+18,card.right-28,(left.right+right.left)/2,Math.min(left.top,right.top)-52];
+        }""")
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(exit_x, y, steps=8)
+        page.mouse.move(exit_x, above, steps=8)
+        page.mouse.move(gap_x, above, steps=8)
+        page.wait_for_timeout(175)
+        page.mouse.up()
+        page.wait_for_function("petMoves.includes('detour')")
+        page.wait_for_function("""() => {
+          const pet=document.querySelector('.home-pet');
+          return pet.getBoundingClientRect().bottom >= pet.parentElement.getBoundingClientRect().bottom - 1;
+        }""", timeout=6000)
         page.locator('.main-nav a[href="/articles/"]').click()
         page.wait_for_url('**/articles/')
         page.go_back()

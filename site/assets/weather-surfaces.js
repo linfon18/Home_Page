@@ -32,7 +32,7 @@
       optics.fillRect(0,0,innerWidth,innerHeight);
     }
     let panels=[];
-    function reset(){panels=[];splashes=[];dirty=true;}
+    function reset(){panels.forEach(panel=>panel.remove());panels=[];splashes=[];dirty=true;}
     const resizeObserver=new ResizeObserver(()=>{dirty=true;});
     function bind(){
       resizeObserver.disconnect();
@@ -58,7 +58,15 @@
       umbrella=dragon&&!dragon.hidden?dragon._weatherShelter||null:null;
       if(!umbrella){canopyWater.fill(0);canopyDrops=[];}
     }
-    function splash(x,y,count=3){for(let i=0;i<count&&splashes.length<(compact.matches?24:60);i++)splashes.push({x,y,vx:rand(-42,42),vy:rand(-42,-12),age:0,life:rand(.12,.28)});}
+    function splash(target,x,y,count=3){for(let i=0;i<count&&target.length<(compact.matches?24:60);i++)target.push({x,y,vx:rand(-42,42),vy:rand(-42,-12),age:0,life:rand(.12,.28)});}
+    function drawSplashes(ctx,particles,dt){
+      return particles.filter(p=>{
+        p.age+=dt;if(p.age>p.life)return false;
+        p.vy+=dt*380;p.x+=p.vx*dt;p.y+=p.vy*dt;
+        ctx.strokeStyle='rgba(201,220,231,'+(.30*(1-p.age/p.life))+')';ctx.lineWidth=.55;
+        ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.012,p.y-p.vy*.012);ctx.stroke();return true;
+      });
+    }
     function canopyHit(p,oldX,oldY){
       if(!umbrella||p.y<=oldY||Math.max(oldX,p.x)<umbrella.x||Math.min(oldX,p.x)>umbrella.x+umbrella.w||p.bounce===2)return null;
       const dx=p.x-oldX,dy=p.y-oldY,points=umbrella.curve;
@@ -77,7 +85,7 @@
       if(nearest&&(!canopy||nearest.t<=canopy.t)){owner.deposit(nearest,p.size);return true;}
       if(canopy){
         umbrellaHits++;umbrella.impact=Math.min(1,umbrella.impact+(effect==='hail'?.4:.025));
-        if(effect==='rain'){splash(canopy.x,canopy.y,2);canopyWater[canopy.side]+=.1+p.size*.04;}
+        if(effect==='rain'){splash(splashes,canopy.x,canopy.y,2);canopyWater[canopy.side]+=.1+p.size*.04;}
         if(effect==='snow')umbrella.snow=Math.min(3,umbrella.snow+p.size*.12);
         if(effect==='hail'){p.x=canopy.x;p.y=canopy.y-2;p.speed=-rand(90,180);p.vx=canopy.side?rand(10,25):rand(-25,-10);p.bounce=2;}
         return true;
@@ -91,15 +99,24 @@
       if(umbrella){const points=umbrella.curve,left=points[0],right=points[points.length-1],bottom=Math.max(innerHeight+100,umbrella.bottom),drift=effect==='snow'?0:-.125;ctx.beginPath();ctx.rect(-1000,-1000,innerWidth+2000,innerHeight+2000);ctx.moveTo(left.x,left.y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.lineTo(right.x+(bottom-right.y)*drift,bottom);ctx.lineTo(left.x+(bottom-left.y)*drift,bottom);ctx.closePath();ctx.clip('evenodd');}
     }
     function createPanel(node){
-      let roof=null,water=[],drops=[],snow=[],film=[],hits=0,snowHits=0,runoffs=0;
+      const surface=document.createElement('canvas'),surfaceCtx=surface.getContext('2d');
+      surface.className='weather-panel-surface';
+      surface.setAttribute('aria-hidden','true');
+      surface.hidden=true;
+      node.append(surface);
+      const pad=25;
+      let roof=null,water=[],drops=[],snow=[],film=[],spray=[],hits=0,snowHits=0,runoffs=0;
       const outlets=[{side:-1},{side:1}];
       outlets.forEach(resetOutlet);
-      function clear(){water=[];drops=[];film=[];snow=[];outlets.forEach(resetOutlet);}
+      function clear(){water=[];drops=[];film=[];snow=[];spray=[];outlets.forEach(resetOutlet);surface.hidden=true;surface.width=0;}
       function measurePanel(){
         const b=node.getBoundingClientRect();
-        if(!b.width||!b.height||b.bottom<0||b.top>innerHeight){roof=null;return;}
+        if(!b.width||!b.height){roof=null;return;}
         const radius=parseFloat(getComputedStyle(node).borderTopLeftRadius)||0;
         roof={x:b.x,y:b.y,w:b.width,h:b.height,r:Math.max(.01,Math.min(radius,b.width/2,b.height/2))};
+        const left=-(pad+node.clientLeft)+'px',top=-(pad+node.clientTop)+'px';
+        if(surface.style.left!==left)surface.style.left=left;
+        if(surface.style.top!==top)surface.style.top=top;
         const count=Math.max(2,Math.ceil(b.width/7)+1);
         function fit(values){return Array.from({length:count},(_,i)=>values.length?values[Math.round(i*(values.length-1)/(count-1))]:0);}
         if(count!==snow.length)snow=fit(snow);
@@ -119,11 +136,13 @@
         const rain=effect==='rain', bins=rain?film:snow;
         const at=Math.round(clamp((hit.x-roof.x)/roof.w,0,1)*(bins.length-1));
         for(let n=-2;n<=2;n++)if(at+n>=0&&at+n<bins.length)bins[at+n]=Math.min(rain?1.8:12,bins[at+n]+(rain?.045+size*.028:size*.34)*(1-Math.abs(n)/3));
-        if(rain){hits++;splash(hit.x,hit.y);}else snowHits++;
+        if(rain){hits++;splash(spray,hit.x-roof.x,hit.y-roof.y);}else snowHits++;
       }
-      function mask(ctx){
+      function mask(ctx,bounds){
         if(!roof)return;
-        ctx.beginPath();ctx.rect(-100,-100,innerWidth+200,innerHeight+200);
+        ctx.beginPath();
+        if(bounds)ctx.rect(bounds.x-pad,bounds.y-pad,bounds.w+pad*2,bounds.h+pad+465);
+        else ctx.rect(-100,-100,innerWidth+200,innerHeight+200);
         rounded(ctx,roof.x,roof.y,roof.w,roof.h,roof.r);ctx.clip('evenodd');
       }
     function edge(distance,side,phase){
@@ -163,7 +182,6 @@
         const amount=film[i]*dt*.18;film[i]-=amount;incoming[i<film.length/2?0:1]+=amount;
         if(i<film.length-1){const flow=(film[i]-film[i+1])*Math.min(.22,dt*3);film[i]-=flow;film[i+1]+=flow;}
       }
-      const visible=roof.y<innerHeight&&roof.y+roof.h>0;
       const wetness=film.length?film.reduce((a,b)=>a+b,0)/film.length:0;
       for(let index=0;index<outlets.length;index++){
         const o=outlets[index],volume=incoming[index];o.delay-=dt;
@@ -178,15 +196,14 @@
           water.push({side:o.side,d:0,v:0,mass,phase:rand(0,tau),trail:[],pause:rand(.15,.4),pin:rand(35,100),spent:false});
         }
       }
-      ctx.save();clip(ctx);
-      if(visible){
-        ctx.lineJoin='round';ctx.lineCap='round';
-        for(let i=1;i<film.length;i++){
-          const x=roof.x+(i-1)/(film.length-1)*roof.w,nx=roof.x+i/(film.length-1)*roof.w,amount=(film[i]+film[i-1])/2;
-          if(amount<.015)continue;
-          ctx.strokeStyle='rgba(165,191,205,'+Math.min(.25,amount*.28)+')';ctx.lineWidth=.6+amount*.6;
-          ctx.beginPath();ctx.moveTo(x,top(x)-.5-film[i-1]*.38);ctx.lineTo(nx,top(nx)-.5-film[i]*.38);ctx.stroke();
-        }
+      ctx.save();
+      for(const panel of panels)panel.mask(ctx,roof);
+      ctx.lineJoin='round';ctx.lineCap='round';
+      for(let i=1;i<film.length;i++){
+        const x=roof.x+(i-1)/(film.length-1)*roof.w,nx=roof.x+i/(film.length-1)*roof.w,amount=(film[i]+film[i-1])/2;
+        if(amount<.015)continue;
+        ctx.strokeStyle='rgba(165,191,205,'+Math.min(.25,amount*.28)+')';ctx.lineWidth=.6+amount*.6;
+        ctx.beginPath();ctx.moveTo(x,top(x)-.5-film[i-1]*.38);ctx.lineTo(nx,top(nx)-.5-film[i]*.38);ctx.stroke();
       }
       const end=roof.r*Math.PI/2+Math.max(0,roof.h-2*roof.r)+roof.r*1.22;
       for(const p of water){
@@ -198,19 +215,17 @@
         }
         for(const t of p.trail)t.age+=dt;
         p.trail=p.trail.filter(t=>t.age<3.2);
-        if(visible){
-          for(let i=1;i<p.trail.length;i++){
-            const a=p.trail[i-1],b=p.trail[i],pa=edge(a.d,p.side,p.phase),pb=edge(b.d,p.side,p.phase),fade=Math.pow(1-a.age/3.2,1.5),pulse=.75+.25*Math.sin(a.d*.11+p.phase);
-            ctx.lineWidth=(.5+p.mass*.4)*pulse;ctx.strokeStyle='rgba(184,211,224,'+(.26*fade)+')';ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
-          }
-          if(!p.spent&&p.d<end){const at=edge(p.d,p.side,p.phase);lens(ctx,at.x,at.y,1+p.mass*.35,(1.4+p.mass*.35)*(1+p.v/130));}
+        for(let i=1;i<p.trail.length;i++){
+          const a=p.trail[i-1],b=p.trail[i],pa=edge(a.d,p.side,p.phase),pb=edge(b.d,p.side,p.phase),fade=Math.pow(1-a.age/3.2,1.5),pulse=.75+.25*Math.sin(a.d*.11+p.phase);
+          ctx.lineWidth=(.5+p.mass*.4)*pulse;ctx.strokeStyle='rgba(184,211,224,'+(.26*fade)+')';ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
         }
+        if(!p.spent&&p.d<end){const at=edge(p.d,p.side,p.phase);lens(ctx,at.x,at.y,1+p.mass*.35,(1.4+p.mass*.35)*(1+p.v/130));}
       }
       for(let i=0;i<water.length;i++)for(let j=i+1;j<water.length;j++){const a=water[i],b=water[j];if(!a.spent&&!b.spent&&a.side===b.side&&Math.abs(a.d-b.d)<5){a.mass+=b.mass;a.v=Math.max(a.v,b.v);a.d=Math.max(a.d,b.d);b.spent=true;}}
       water=water.filter(p=>!p.spent||p.trail.length);
       for(const o of outlets){
         const at=edge(end,o.side,0),jet=o.flow>.12;
-        if(jet&&visible){
+        if(jet){
           // A slender attached film feeds a short jet, which breaks into drops.
           ctx.beginPath();for(let d=0;d<end;d+=8){const p=edge(d,o.side,Math.sin(time)*.2);if(d)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y);}ctx.lineTo(at.x,at.y);
           ctx.lineWidth=(.65+Math.min(o.feed,3)*.28)*o.flow;ctx.strokeStyle='rgba(193,219,234,'+(.35*o.flow)+')';ctx.stroke();
@@ -224,18 +239,38 @@
             drops.push({x:at.x-roof.x,y:at.y-roof.y+length,vy:jet?95:10,rx:radius,age:0});o.pendant-=mass;o.pinching=0;o.threshold=rand(1.45,1.85);o.released++;runoffs++;
           }
         }
-        if(visible&&o.flow<.65)pendant(ctx,at,o,time);
+        if(o.flow<.65)pendant(ctx,at,o,time);
       }
-      drops=drops.filter(p=>{p.age+=dt;p.vy+=dt*780;p.y+=dt*p.vy;if(p.age>.8)return false;if(visible)lens(ctx,roof.x+p.x,roof.y+p.y,p.rx*(1-.22*Math.min(1,p.age*3)),p.rx*(1+Math.min(.8,p.vy/380)));return true;});
+      drops=drops.filter(p=>{p.age+=dt;p.vy+=dt*780;p.y+=dt*p.vy;if(p.age>.8)return false;lens(ctx,roof.x+p.x,roof.y+p.y,p.rx*(1-.22*Math.min(1,p.age*3)),p.rx*(1+Math.min(.8,p.vy/380)));return true;});
+      ctx.translate(roof.x,roof.y);
+      spray=drawSplashes(ctx,spray,dt);
       ctx.restore();
     }
-    function drawPanel(ctx,dt,time,dark){
-      if(!roof)return;
-      if(effect==='rain')rain(ctx,dt,time,dark);
-      if(effect==='snow')drawSnow(ctx,dt);
+    function drawPanel(dt,time,dark){
+      if(!roof||!surfaceCtx||!['rain','snow'].includes(effect))return;
+      const rainfall=effect==='rain';
+      const width=Math.ceil(roof.w)+pad*2;
+      // Round up to avoid reallocating the backing store throughout a height transition.
+      const height=rainfall?Math.ceil((roof.h+pad+400)/64)*64:Math.ceil(roof.r)+pad+4;
+      if(roof.y-pad>innerHeight||roof.y-pad+height<0)return;
+      const ratio=Math.min(devicePixelRatio||1,1.5);
+      const pixelsWide=Math.round(width*ratio),pixelsHigh=Math.round(height*ratio);
+      if(surface.width!==pixelsWide||surface.height!==pixelsHigh){
+        surface.width=pixelsWide;surface.height=pixelsHigh;
+        surface.style.width=width+'px';surface.style.height=height+'px';
+      }
+      surfaceCtx.setTransform(1,0,0,1,0,0);
+      surfaceCtx.clearRect(0,0,pixelsWide,pixelsHigh);
+      // Keep existing collision and refraction math in viewport coordinates, but
+      // paint to card-local pixels so the browser moves them with the card.
+      const sx=pixelsWide/width,sy=pixelsHigh/height;
+      surfaceCtx.setTransform(sx,0,0,sy,(pad-roof.x)*sx,(pad-roof.y)*sy);
+      if(rainfall)rain(surfaceCtx,dt,time,dark);
+      else drawSnow(surfaceCtx,dt);
+      surface.hidden=false;
     }
     function report(){return {rainHits:hits,snowHits,runoffs,waterStreams:water.filter(p=>!p.spent).length,waterFilm:film.reduce((a,b)=>a+b,0).toFixed(2),waterPendant:outlets.map(o=>o.pendant.toFixed(2)).join(','),waterFlow:outlets.map(o=>o.flow.toFixed(2)).join(','),snowDepth:(snow.length?Math.max(...snow):0).toFixed(2)};}
-    return {node,measure:measurePanel,mask,crossing,deposit,clear,draw:drawPanel,report};
+    return {node,measure:measurePanel,mask,crossing,deposit,clear,draw:drawPanel,report,remove:()=>surface.remove()};
     function drawSnow(ctx,dt){
       for(let i=0;i<snow.length;i++)snow[i]=Math.min(12,snow[i]+dt*.11);
       ctx.save();ctx.shadowColor='rgba(12,32,52,.25)';ctx.shadowBlur=2;ctx.shadowOffsetY=1;
@@ -246,14 +281,14 @@
     }
     }
     function draw(ctx,dt,time,dark){
-      for(const panel of panels)panel.draw(ctx,dt,time,dark);
+      for(const panel of panels)panel.draw(dt,time,dark);
       if(umbrella&&effect==='rain'){
         for(let i=0;i<2;i++)if(canopyWater[i]>=.65&&canopyDrops.length<20){const p=umbrella.curve[i?16:0];canopyWater[i]-=.65;canopyDrops.push({x:p.x,y:p.y+2,vy:28,age:0,side:i?1:-1,scale:umbrella.scale});umbrellaRunoffs++;}
         ctx.save();for(const panel of panels)panel.mask(ctx);
         canopyDrops=canopyDrops.filter(p=>{p.age+=dt;if(p.age>1)return false;p.vy+=dt*560;p.y+=dt*p.vy;p.x+=dt*(p.side*6-12);ctx.strokeStyle='rgba(198,226,243,'+(.6*(1-p.age))+')';ctx.lineWidth=Math.max(.6,Math.min(2,p.scale));ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+1,p.y-Math.min(9,2+p.vy*.016));ctx.stroke();return true;});ctx.restore();
       }
       ctx.save();clip(ctx);
-      splashes=splashes.filter(p=>{p.age+=dt;if(p.age>p.life)return false;p.vy+=dt*380;p.x+=p.vx*dt;p.y+=p.vy*dt;ctx.strokeStyle='rgba(201,220,231,'+(.30*(1-p.age/p.life))+')';ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.012,p.y-p.vy*.012);ctx.stroke();return true;});
+      splashes=drawSplashes(ctx,splashes,dt);
       ctx.restore();
       if(time-lastReport>.25){
         lastReport=time;
@@ -269,6 +304,6 @@
     document.addEventListener('terminal-catastrophe',()=>{movingUntil=performance.now()+2100;clearTimeout(settleTimer);settleTimer=setTimeout(invalidate,2110);});
     document.addEventListener('animationend',e=>{if(e.target.closest('#main'))dirty=true;});
     document.addEventListener('site-page-before',()=>{clearTimeout(settleTimer);resizeObserver.disconnect();reset();});addEventListener('site-page',pageReady);pageReady();
-    return {set,measure,collide,clip,draw,invalidate};
+    return {set,measure,collide,clip,draw,invalidate,geometryChanged:()=>panels.length>0&&(dirty||performance.now()<movingUntil)};
   };
 })();

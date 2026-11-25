@@ -55,6 +55,17 @@
 .home-stage .home-name > p::after { animation: none; }
 .home-stage .home-profile > :is(.home-avatar,.home-name,.home-intro,.home-buttons,.home-social) { animation: none; }
 
+.name-type .name-period { position: relative; color: transparent; }
+.home-period-dot {
+  position: absolute;
+  left: 50%;
+  bottom: .13em;
+  width: clamp(10px, .19em, 16px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50%;
+  background: var(--blue);
+}
 .home-profile.has-pet .name-period { visibility: hidden; }
 @media (prefers-reduced-motion:no-preference) {
   .home-stage .home-profile:has(.home-pet-area) { padding-bottom: max(32px, 3.1vw); }
@@ -103,13 +114,19 @@
   pointer-events: none;
   box-shadow: inset 0 -2px 3px #14285e30, 0 2px 4px #172e642f;
   transform-origin: 50% 90%;
-  transition: background-color .34s ease;
+  transition: background-color .34s ease, scale .15s ease-out;
 }
 .home-pet[data-mood=curious] { --pet-tone: #23a69a; }
 .home-pet[data-mood=playful] { --pet-tone: #e8a640; }
 .home-pet[data-mood=startled] { --pet-tone: #e57971; }
 .home-pet[data-mood=sleepy] { --pet-tone: #8b8cae; }
-.home-pet[data-pose=seed] .home-pet-body { box-shadow: none; }
+.home-pet[data-pose=seed] .home-pet-body {
+  background: var(--blue);
+  box-shadow: none;
+  scale: var(--pet-seed-scale, 1);
+  transform-origin: center;
+  transition: none;
+}
 .home-pet:is([data-pose=fall],[data-pose=drop],[data-pose=throw]) .home-pet-body::before {
   position: absolute;
   inset: auto 24% 80%;

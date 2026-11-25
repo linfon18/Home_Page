@@ -59,6 +59,33 @@ if(h<1)return false;const d=c.getContext('2d').getImageData(x,y,w,h).data;return
 def weather(page, mode):
     page.locator('[data-weather-mode="' + mode + '"]').evaluate('e=>e.click()')
 
+def check_scroll_anchors(page, label):
+    # Jump between scroll positions in the same task. Canvas rendering cannot
+    # run in between, so the existing deposits must move with their cards.
+    check(label, page.evaluate('''() => {
+      const surfaces = [...document.querySelectorAll('canvas.weather-panel-surface:not([hidden])')];
+      const read = () => surfaces.map(c => {
+        const box = c.getBoundingClientRect(), panel = c.parentNode.getBoundingClientRect();
+        return {top: box.top, left: box.left, dy: box.top - panel.top, dx: box.left - panel.left};
+      });
+      const originalY = scrollY, before = read();
+      if (surfaces.length !== 2 || !surfaces.every(c => {
+        const data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        return data.some((opacity, i) => i % 4 === 3 && opacity > 0);
+      })) return false;
+      let passed = false;
+      for (const target of [originalY + 310, originalY - 310, originalY + 155, originalY]) {
+        scrollTo({top: target, behavior: 'instant'});
+        const distance = scrollY - originalY;
+        if (Math.abs(distance) > 100) passed = true;
+        if (!read().every(({top, left, dx, dy}, i) =>
+          Math.abs(top - before[i].top + distance) < .7 &&
+          Math.abs(left - before[i].left) < .7 && Math.abs(dx + 25) < .75 && Math.abs(dy + 25) < .75))
+          return false;
+      }
+      return passed;
+    }'''))
+
 try:
     with sync_playwright() as p:
         launch = {'headless': True, 'args': ['--enable-unsafe-swiftshader']}
@@ -101,6 +128,20 @@ try:
                 reads = page.evaluate('geometryReads')
                 print('Settled 2s geometry reads:', reads, flush=True)
                 check('Weather does not measure DOM every frame', reads < 15)
+            if dpr in (1, 3):
+                page.locator('.home-console').evaluate("e=>scrollTo({top:scrollY+e.getBoundingClientRect().top-160,behavior:'instant'})")
+                page.clock.run_for(3000)
+                check_scroll_anchors(page, f'{width}@{dpr} rain stays attached during scroll jumps')
+                weather(page, 'snow')
+                page.clock.run_for(1200)
+                check_scroll_anchors(page, f'{width}@{dpr} snow stays attached during scroll jumps')
+                toggle = page.locator('.home-network-toggle')
+                toggle.evaluate('e=>e.click()')
+                page.clock.run_for(700)
+                check_scroll_anchors(page, f'{width}@{dpr} snow follows the expanded MCT card')
+                toggle.evaluate('e=>e.click()')
+                weather(page, 'rain')
+                page.clock.run_for(800)
             page.locator('[data-live2d-size]').first.evaluate('e=>e.click()')
             page.locator('[data-size-max]').click(); page.keyboard.press('Escape'); page.clock.run_for(200)
             result = page.evaluate(canopy)

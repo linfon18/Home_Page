@@ -113,7 +113,7 @@ SitePage.register('linux', scope => {
     scene('ops','Linux · inspect / logs');const task=pick(['resources','network','logs']);
     if(task==='resources'){
       await command('free -h',{typo:false});await output(['               total        used        free      shared  buff/cache   available','Mem:           3.8Gi       '+pick(['812','924','768'])+'Mi       1.6Gi        12Mi       1.4Gi       2.7Gi','Swap:          1.0Gi          0B       1.0Gi']);
-      await command('df -h /',{typo:false});out('Filesystem      Size  Used Avail Use% Mounted on');out('/dev/vda1        40G   15G   23G  40% /');
+      await command('df -h /',{typo:false});out('Filesystem      Size  Used Avail Use% Mounted on');out('/dev/sda1        40G   15G   23G  40% /');
     }else if(task==='network'){
       await command('ss -lnt | head -n 5');await output(['State   Recv-Q  Send-Q  Local Address:Port   Peer Address:Port','LISTEN  0       128     127.0.0.1:631        0.0.0.0:*','LISTEN  0       4096    127.0.0.53:53        0.0.0.0:*','LISTEN  0       128       0.0.0.0:22         0.0.0.0:*']);
       await command('getent hosts localhost',{typo:false});out('::1             localhost ip6-localhost ip6-loopback');

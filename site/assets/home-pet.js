@@ -5,6 +5,9 @@
   const range = (low, high) => low + Math.random() * (high - low);
   const idleMoves = ['patrol', 'peek', 'roll', 'hop', 'listen', 'scoot', 'double-hop'];
   const playMoves = ['double-hop', 'twirl', 'cheer', 'scoot'];
+  const navigation = performance.getEntriesByType('navigation')[0];
+  let documentOpening = document.body.dataset.page === 'home' &&
+    (document.documentElement.dataset.homeVisit === 'first' || (!location.hash && navigation?.type === 'reload'));
 
   SitePage.register('home-pet', scope => {
     const pet = document.querySelector('.home-pet');
@@ -12,12 +15,14 @@
     const profile = pet.closest('.home-profile');
     const area = pet.parentElement;
     const period = profile.querySelector('.name-period');
+    const titleDot = period.querySelector('.home-period-dot');
     const body = pet.querySelector('.home-pet-body');
     const dockLinks = Array.from(profile.querySelectorAll('.home-buttons a'));
     let bounds, point, shape, timer, pressed, ignoreClick = false;
     let flight, flightFrame = 0, dockFrame = 0, dockUntil = 0;
     let docks = [], docked = null;
-    let visible = false, waiting = document.documentElement.dataset.homeVisit === 'first';
+    let visible = false, waiting = documentOpening, opening = false, blockedExit = null;
+    documentOpening = false;
     let idleBag = [], lastIdle, playIndex = 0, lastLook = 0, visits = 0, patrolRight = false;
     const sparks = new Set();
 
@@ -72,9 +77,13 @@
     }
     function schedule(delay = range(420, 1150)) {
       clearTimeout(timer);
-      if (visible && able()) timer = setTimeout(explore, delay);
+      if ((visible || opening) && able()) timer = setTimeout(explore, delay);
     }
     function rest(delay) {
+      if (point.y >= bounds.floor - 1) {
+        opening = false;
+        blockedExit = null;
+      }
       const dock = docks.find(dock => Math.abs(point.y - dock.y) < .5 && dockContains(dock, point.x));
       docked = dock ? { ...dock, fraction: (point.x - dock.center) / dock.halfWidth } : null;
       pet.toggleAttribute('data-perched', Boolean(docked));
@@ -85,7 +94,7 @@
       }
       pose('rest');
       if (delay === undefined) mood('calm');
-      schedule(docked ? range(1800, 2900) : delay);
+      schedule(opening ? 200 : docked ? range(1800, 2900) : delay);
     }
     function leaveDock() {
       cancelAnimationFrame(dockFrame);
@@ -124,8 +133,9 @@
       dockFrame = requestAnimationFrame(track);
     }
     function openingDrop() {
-      if (!point) return;
-      launch(42, 0, 'fall');
+      if (pressed) { timer = setTimeout(openingDrop, 120); return; }
+      placeAtTitle();
+      launch(28, 0, 'fall');
     }
 
     function launch(vx = 0, vy = 0, action) {
@@ -136,6 +146,28 @@
       mood(action === 'patrol' || !thrown ? 'curious' : 'playful');
       flight = { vx, vy, last: performance.now(), lastImpact: -Infinity, still: 0 };
       flightFrame = requestAnimationFrame(simulate);
+    }
+    function takeDetour() {
+      readDocks();
+      const obstacles = docks.filter(dock => dock.bottom + ballRadius >= point.y - 1);
+      if (!obstacles.length) { launch(); return; }
+      const clear = x => !obstacles.some(dock => Math.abs(x - dock.center) < dock.halfWidth + ballRadius + 2);
+      const exits = [];
+      for (let x = bounds.left; x <= bounds.right; x += 3) {
+        if (clear(x)) exits.push(x);
+      }
+      if (clear(bounds.right)) exits.push(bounds.right);
+      if (!exits.length) { launch(); return; }
+      const options = exits.filter(x => Math.sign(x - point.x) !== blockedExit);
+      const target = (options.length ? options : exits)
+        .reduce((best, x) => Math.abs(x - point.x) < Math.abs(best - point.x) ? x : best);
+      const direction = Math.sign(target - point.x);
+      const nearestDockTop = Math.min(...obstacles.filter(dock =>
+        dock.center + dock.halfWidth >= Math.min(point.x, target) &&
+        dock.center - dock.halfWidth <= Math.max(point.x, target)).map(dock => dock.y));
+      const rise = clamp(point.y - nearestDockTop + 14, 0, 42);
+      launch(0, rise ? -Math.sqrt(2 * gravity * rise) : 0, 'detour');
+      flight.detour = { target, direction, anchor: point.x, lastProgress: flight.last };
     }
     // Closest point on a rounded rectangle expanded by the ball's radius.
     function buttonContact(dock, x, y, previousX, previousY) {
@@ -163,6 +195,7 @@
       flight.last = now;
       let { x, y } = point;
       let { vx, vy } = flight;
+      const route = flight.detour;
       let impact = 0, horizontal = false, supported = false;
       // Small steps keep collisions stable when a display frame arrives late.
       const steps = Math.max(1, Math.ceil(elapsed * 160));
@@ -173,6 +206,10 @@
         const onDock = docks.some(dock => Math.abs(y - dock.y) < .1 && dockContains(dock, x));
         const rolling = vy === 0 && (onDock || y >= bounds.floor);
         vx *= Math.exp(-(rolling ? 2.5 : .42) * dt);
+        if (route && y < bounds.floor - 1) {
+          const desired = clamp((route.target - x) * 10, -250, 250);
+          vx += clamp(desired - vx, -1450 * dt, 1450 * dt);
+        }
         if (!rolling) vy += gravity * dt;
         x += vx * dt;
         y += vy * dt;
@@ -222,18 +259,23 @@
       const atRest = vy === 0 && Math.abs(vx) < 14 &&
         (y >= bounds.floor || docks.some(dock => Math.abs(y - dock.y) < .5 && dockContains(dock, x)));
       flight.still = supported && Math.hypot(vx, vy) < 35 ? flight.still + elapsed : 0;
-      if (atRest || flight.still > .16) {
+      if (route && Math.abs(route.anchor - x) > 3) {
+        route.anchor = x;
+        route.lastProgress = now;
+      }
+      const trapped = route && supported && now - route.lastProgress > 400;
+      if (trapped || (!route && flight.still > .16) || (atRest && (!route || y >= bounds.floor - 1))) {
+        if (trapped) blockedExit = route.direction;
         flight = null;
         flightFrame = 0;
-        rest(600);
+        rest(trapped ? 260 : 600);
       } else {
         flightFrame = requestAnimationFrame(simulate);
       }
     }
     function act(action) {
-      if (docked) {
-        const direction = (bounds.right - docked.right) > (docked.left - bounds.left) ? 1 : -1;
-        launch(250 * direction, -115, 'scoot');
+      if (point.y < bounds.floor - 2) {
+        takeDetour();
         return;
       }
       cancelMotion();
@@ -241,10 +283,6 @@
       mood(action === 'doze' ? 'sleepy' :
         ['peek', 'listen', 'patrol'].includes(action) ? 'curious' : 'playful');
       const x = point.x, y = bounds.floor;
-      if (point.y < y - 2) {
-        launch((point.x < (bounds.left + bounds.right) / 2 ? -1 : 1) * 165, -140, action);
-        return;
-      }
       const direction = x > (bounds.left + bounds.right) / 2 ? -1 : 1;
       const heading = Math.random() < .75 ? direction : -direction;
       switch (action) {
@@ -288,8 +326,9 @@
       }
     }
     function explore() {
-      if (!able() || !visible) return;
+      if (!able() || (!visible && !opening)) return;
       if (pressed) { schedule(350); return; }
+      if (point.y < bounds.floor - 2) { takeDetour(); return; }
       visits++;
       if (!docked && visits % 4 === 2) { act('patrol'); return; }
       if (visits % 12 === 0) { act('doze'); return; }
@@ -315,7 +354,9 @@
       if (docked) syncDock();
       if (unchanged) return;
       if (!pet.hidden && !pressed && !docked) {
-        if (flight) {
+        if (pet.dataset.pose === 'seed') {
+          placeAtTitle();
+        } else if (flight) {
           // Keep the current flight when expanding MCT animates the card's height.
           place({ x: groundX(point.x), y: clamp(point.y, bounds.top, floor) });
         } else {
@@ -325,24 +366,29 @@
         }
       }
     }
+    function placeAtTitle() {
+      const dot = titleDot.getBoundingClientRect();
+      const box = area.getBoundingClientRect();
+      pet.style.setProperty('--pet-seed-scale', dot.width / (2 * ballRadius));
+      place({ x: groundX(dot.left + dot.width / 2 - box.left), y: dot.top + dot.height / 2 - box.top });
+    }
     function start() {
       if (!pet.hidden || !able() || document.documentElement.dataset.homeEntrance === 'waiting') return;
-      profile.classList.add('has-pet');
       measure();
-      const titleDot = period.getBoundingClientRect(), box = area.getBoundingClientRect();
-      const x = titleDot.x - box.x + titleDot.width / 2;
-      const falling = waiting && document.documentElement.dataset.homeVisit === 'first';
+      opening = waiting;
       waiting = false;
-      place({ x: groundX(x), y: falling ? titleDot.bottom - box.top - 8 : bounds.floor });
+      placeAtTitle();
+      if (!opening) place({ x: point.x, y: bounds.floor });
+      profile.classList.add('has-pet');
       pet.hidden = false;
-      if (falling) {
+      if (opening) {
         pose('seed');
-        timer = setTimeout(openingDrop, 100);
+        timer = setTimeout(openingDrop, 220);
       } else {
         rest();
       }
     }
-    function park() {
+    function park(keepOpening = false) {
       cancelMotion();
       for (const spark of sparks) spark.remove();
       sparks.clear();
@@ -350,11 +396,13 @@
       pressed = null;
       if (pointerId != null && pet.hasPointerCapture(pointerId)) pet.releasePointerCapture(pointerId);
       leaveDock();
-      if (reduced.matches) {
-        waiting = false;
+      if (reduced.matches || (opening && keepOpening)) {
+        waiting = !reduced.matches;
+        opening = false;
         pet.hidden = true;
         profile.classList.remove('has-pet');
       } else if (!pet.hidden) {
+        opening = false;
         place({ x: groundX(point.x), y: bounds.floor });
         pose('rest');
       }
@@ -362,8 +410,10 @@
     function resume() {
       if (!able()) return;
       if (pet.hidden) {
-        if (!waiting || document.documentElement.dataset.homeEntrance === 'played') start();
-      } else {
+        const arriving = waiting && period.getAnimations().some(animation =>
+          animation.animationName === 'arrival-letter' && animation.playState === 'running');
+        if (!arriving) start();
+      } else if (!flight && pet.dataset.pose === 'rest') {
         schedule();
       }
     }
@@ -373,7 +423,7 @@
     });
     scope.on(pet, 'click', event => {
       if (ignoreClick && event.detail) return;
-      if (able()) act(playMoves[playIndex++ % playMoves.length]);
+      if (able() && pet.dataset.pose !== 'seed') act(playMoves[playIndex++ % playMoves.length]);
     });
     function recordPointer(gesture, event) {
       const sample = { x: event.clientX, y: event.clientY, time: event.timeStamp };
@@ -416,6 +466,8 @@
       if (!pressed.dragging) {
         if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 6) return;
         pressed.dragging = true;
+        opening = false;
+        blockedExit = null;
         cancelMotion();
         leaveDock();
         pose('drag');
@@ -478,8 +530,8 @@
         form(['scale(1) rotate(0deg)', `scale(1.08,.94) rotate(${Math.sign(dx) * 17}deg)`, 'scale(1) rotate(0deg)'], 330);
       }
     }, { passive: true });
-    scope.on(document, 'visibilitychange', () => { if (document.hidden) park(); else resume(); });
-    scope.on(window, 'pagehide', park);
+    scope.on(document, 'visibilitychange', () => { if (document.hidden) park(true); else resume(); });
+    scope.on(window, 'pagehide', () => { waiting = false; park(); });
     scope.on(window, 'pageshow', resume);
     scope.on(reduced, 'change', () => { if (reduced.matches) park(); else resume(); });
     const resize = new ResizeObserver(measure);

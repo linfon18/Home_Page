@@ -1,5 +1,13 @@
 .weather-field{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;contain:strict}
 .weather-surfaces{position:fixed;inset:0;pointer-events:none;contain:strict}
+.weather-panel-surface{position:absolute;z-index:7;pointer-events:none;display:none}
+html[data-weather-active=true]:is([data-weather-effect=rain],[data-weather-effect=snow]) .weather-panel-surface{display:block}
+html[data-weather-active=true]:is([data-weather-effect=rain],[data-weather-effect=snow]) .home-console{
+  position:relative;z-index:3;overflow:visible;isolation:isolate
+}
+html[data-weather-active=true]:is([data-weather-effect=rain],[data-weather-effect=snow]) .home-console .console-bar{border-radius:inherit;border-bottom-left-radius:0;border-bottom-right-radius:0}
+html[data-weather-active=true]:is([data-weather-effect=rain],[data-weather-effect=snow]) .home-console .console-footer{border-radius:inherit;border-top-left-radius:0;border-top-right-radius:0}
+html[data-weather-active=true]:is([data-weather-effect=rain],[data-weather-effect=snow]) .main-home .home-network.is-expanded{z-index:3;overflow:visible}
 .dragon-umbrella{position:absolute;inset:0;pointer-events:none;z-index:0}.dragon-umbrella svg{width:100%;height:100%;display:block;overflow:visible}.live2d-widget>canvas{position:relative;z-index:1}.umbrella-snow{display:none}.dragon-umbrella[data-weather=snow] .umbrella-snow{display:block}
 .live2d-close,.live2d-size-button{z-index:2}
 .weather-settings{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
@@ -8,4 +16,4 @@
 .weather-location{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.weather-location label{white-space:nowrap}.weather-location input{width:190px;max-width:100%;min-height:36px;padding:5px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-size:12px}.weather-location button{color:var(--blue);min-height:36px;padding:5px 10px}.weather-location input:disabled{opacity:.5}.weather-note{margin-top:9px;font-size:10px}.weather-note a{text-decoration:underline;text-underline-offset:3px}.weather-message{display:block;min-height:1.8em}
 .live2d-size-actions [data-size-max]{font-size:11px;padding:0 8px}.live2d-size-actions [data-size-max][aria-pressed=true]{background:var(--blue);color:var(--bg)}.live2d-widget.is-maximized .live2d-close,.live2d-widget.is-maximized .live2d-size-button{top:2px}
 @media(max-width:500px){.weather-location input{flex:1;min-width:100px}.weather-options{gap:6px}.weather-options button{min-height:40px;padding-inline:12px}}
-@media print{.weather-field,.weather-surfaces,.dragon-umbrella,.weather-settings{display:none!important}}
+@media print{.weather-field,.weather-surfaces,.weather-panel-surface,.dragon-umbrella,.weather-settings{display:none!important}}

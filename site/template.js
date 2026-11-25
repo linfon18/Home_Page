@@ -36,7 +36,7 @@ function home(c,entries){return `<section class="home-stage" aria-labelledby="ho
   <article class="home-profile pane">
     <div class="home-hello"><span data-time-greeting>你好，欢迎来逛。</span><span>${i('location')} 深圳</span></div>
     <a href="/about/" class="home-avatar" aria-label="关于 linfon18">${avatar(c)}</a>
-    <div class="home-name"><h1 id="home-name" aria-label="${e(c.name)}"><span class="name-type" aria-hidden="true">${Array.from(c.name, (letter, index) => `<i style="--letter-index:${index}">${e(letter)}</i>`).join('')}<i class="name-period" style="--letter-index:${c.name.length}">.</i></span></h1><p>${e(c.bio)}</p></div>
+    <div class="home-name"><h1 id="home-name" aria-label="${e(c.name)}"><span class="name-type" aria-hidden="true">${Array.from(c.name, (letter, index) => `<i style="--letter-index:${index}">${e(letter)}</i>`).join('')}<i class="name-period" style="--letter-index:${c.name.length}">.<span class="home-period-dot"></span></i></span></h1><p>${e(c.bio)}</p></div>
     <p class="home-intro">你可以叫我 linfon18 或 Ad1va。<br>大一，学智能互联网络技术。<br>平时写点 C#，折腾自己想做的东西。<br>这里放项目，也记些遇到的问题。</p>
     <div class="home-buttons">${button('/about/','认识一下 '+i('right'))}${A(c.github_url,i('github')+' GitHub','button button-outline')}</div>
     <div class="home-social">${A(c.contact.qq,i('game')+'<span>一起玩</span>')}${A(c.contact.bilibili,i('monitor')+'<span>Bilibili</span>')}<a href="/contact/">${i('mail')}<span>联系我</span></a><span class="home-time"><time data-clock>--:--:--</time><small>UTC+8</small></span></div>

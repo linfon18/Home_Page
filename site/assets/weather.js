@@ -72,7 +72,10 @@
     if(hidden){stop();if(ctx)ctx.clearRect(0,0,width,height);}else{if(viewport)viewport.sync();wake();}
   }
   function draw(now){
-    frame=0;if(canvas.hidden||disposed)return;const interval=compact.matches?42:32;if(last&&now-last<interval){wake();return;}
+    frame=0;if(canvas.hidden||disposed)return;
+    const interval=compact.matches?42:32;
+    const moving=(effect==='rain'||effect==='snow')&&surfaces.geometryChanged();
+    if(!moving&&last&&now-last<interval){wake();return;}
     const dt=last?Math.min((now-last)/1000,.06):0;last=now;time+=dt;ctx.clearRect(0,0,width,height);
     const color=dark?'186,211,238':'42,79,119';surfaces.measure();
     ctx.save();if(effect==='rain'||effect==='snow'||effect==='hail')surfaces.clip(ctx);
