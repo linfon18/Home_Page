@@ -303,9 +303,8 @@ body[data-page="home"] {
 }
 .home-network-icon { position: relative; display: grid; place-items: center; width: 32px; height: 32px; }
 .home-network-icon > .icon { width: 22px; height: 22px; }
-.home-network-icon > img { position: absolute; inset: 0; background: #08151f; }
+.home-network-icon > img { position: absolute; inset: 0; }
 .home-network-icon .mct-home-icon { width: 32px; height: 32px; object-fit: contain; }
-.home-project-preview .mct-home-icon { background: transparent; }
 .home-network-icon:has(img:not([hidden])) > .icon { visibility: hidden; }
 
 .home-network-controls {
