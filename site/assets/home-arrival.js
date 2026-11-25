@@ -5,7 +5,7 @@
   SitePage.register('home-arrival', scope => {
     const title = document.querySelector('#home-name');
     if (!title) return;
-    const letters = Array.from(title.querySelectorAll('.name-type i'), el => ({ el, y: 0, v: 0, target: 0 }));
+    const letters = Array.from(title.querySelectorAll('.name-type i:not(.name-period)'), el => ({ el, y: 0, v: 0, target: 0 }));
     const panel = title.closest('.home-profile');
     let frame = 0, last = 0, pressed = false;
     let rimFrame = 0, pointer = null;
