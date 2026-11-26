@@ -2,6 +2,7 @@
 const {escape:e,icon:i,pills,markdown}=require('./ui');
 const label=type=>type==='posts'?'文章':'笔记';
 const route=type=>type==='posts'?'/articles/':'/notes/';
+const serviceAddressPrompt='如果你希望接入官方服务,请联系本站站长(MCT开发者),或者自行查阅Github源码';
 function card(n){
   const pin = n.pinned ? '<span class="entry-pin">置顶</span>' : '';
   return `<a class="entry-row" href="${e(n.url)}"><div class="entry-meta">${pin}<span>${e(n.category)}</span>${n.date?'<time datetime="'+n.publishedAt+'">'+n.date.replace(/-/g,'.')+'</time>':''}<span>${n.minutes} 分钟</span></div><h2>${e(n.title)} ${i('arrow')}</h2><p>${e(n.description)}</p><div class="entry-tags">${n.tags.map(t=>'<span># '+e(t)+'</span>').join('')}</div></a>`;
@@ -14,7 +15,11 @@ function index(all,type){
 }
 function detail(n){
   const headings=Array.from(n.body.replace(/```[^\n]*\n[\s\S]*?(?:```|$)/g,'').matchAll(/^(#{1,6}) (.+)$/gm));
-  let number=0;const body=markdown(n.body).replace(/<h([2-6])>/g,(_,level)=>'<h'+level+' id="section-'+(++number)+'">');
+  let number=0;
+  const body=markdown(n.body)
+    .replace(/<h([2-6])>/g,(_,level)=>'<h'+level+' id="section-'+(++number)+'">')
+    .replace('<blockquote>[!MCT-SERVICE-ADDRESS]</blockquote>', () =>
+      `<button type="button" class="service-address-mask" aria-pressed="false" aria-label="官方服务地址已隐藏" aria-describedby="service-address-prompt"><span id="service-address-prompt">${e(serviceAddressPrompt)}</span></button>`);
   const toc=headings.length?`<aside class="reading-toc pane"><details open><summary>本文目录 <small></small></summary><nav aria-label="本文目录">${headings.map((h,index)=>'<a href="#section-'+(index+1)+'">'+e(h[2].replace(/[*`]/g,''))+'</a>').join('')}</nav></details></aside>`:'';
   return `<div class="reading-back"><a href="${route(n.type)}">← ${label(n.type)}</a><span>${e(n.category)}</span></div><div class="reading-layout"><article class="note-detail reading-page pane"><header><div class="entry-meta"><span>${e(n.category)}</span>${n.date?'<time datetime="'+n.publishedAt+'">'+(n.preciseDate?n.publishedAt.replace('T',' ').replace(/([+-]\d\d:\d\d)$/, ' UTC$1'):n.date)+'</time>':''}<span>${n.minutes} 分钟阅读</span></div><h1>${e(n.title)}</h1><p>${e(n.description)}</p>${n.updated?'<p class="reading-updated">更新于 '+n.updated+'</p>':''}${pills(n.tags)}</header><div class="prose">${body}</div><footer><a class="text-link" href="${route(n.type)}">← 全部${label(n.type)}</a><button class="button button-tonal button-small" data-copy-page>${i('copy')} 复制链接</button></footer></article>${toc}</div>`;
 }

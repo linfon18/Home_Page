@@ -10,6 +10,11 @@ SitePage.register('personal', scope => {
   function filterNotes(){const query=search.value.trim().toLowerCase();let found=0;$$('[data-note-item]').forEach(item=>{const show=(category==='all'||item.dataset.noteCategory===category)&&item.dataset.noteText.includes(query);item.hidden=!show;if(show)found++;});$('[data-note-empty]').hidden=found>0;}
   if(search){search.addEventListener('input',filterNotes);$$('[data-note-filter]').forEach(b=>b.addEventListener('click',()=>{category=b.dataset.noteFilter;$$('[data-note-filter]').forEach(option=>{const active=option===b;option.classList.toggle('is-active',active);option.setAttribute('aria-pressed',String(active));});filterNotes();}));scope.on(document,'keydown',event=>{if(event.key==='/'&&!event.ctrlKey&&!event.metaKey&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){event.preventDefault();search.focus();}if(event.key==='Escape'&&document.activeElement===search){search.value='';filterNotes();search.blur();}});}
   const copy=$('[data-copy-page]');if(copy)copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);notify('链接已复制。');}catch(_){notify('复制失败，可以直接复制地址栏。');}});
+  const serviceAddress=$('.service-address-mask');
+  if(serviceAddress)scope.on(serviceAddress,'click',()=>{
+    const pressed=serviceAddress.getAttribute('aria-pressed')==='true';
+    serviceAddress.setAttribute('aria-pressed',String(!pressed));
+  });
   const issue=$('[data-copy-issue]');if(issue)issue.addEventListener('click',async()=>{const text='MCT 版本：\nWindows 版本：\nMinecraft 版本 / 模组：\n联机方案（OpenP2P / MCILM-Link / EasyTier）：\n网络环境（双方）：\n复现步骤：\n预期结果：\n实际结果：\n相关日志 / 截图：';try{await navigator.clipboard.writeText(text);notify('反馈模板已复制。');}catch(_){notify('复制失败，请在 Issue 中写明版本、联机方案和报错。');}});
   const preview=$('[data-mct-preview]');
   if(preview){

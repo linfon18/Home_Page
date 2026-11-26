@@ -246,3 +246,21 @@ body,a,button,.pane{transition-property:background-color,border-color,box-shadow
     padding:22px 0 0;
   }
 }
+.prose .service-address-mask {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  margin: 1em 0;
+  padding: 8px 14px;
+  border-radius: 5px;
+  background: #000;
+  color: transparent;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.prose .service-address-mask:focus-visible,
+.prose .service-address-mask[aria-pressed="true"] { color: #fff; }
+@media (hover: hover) {
+  .prose .service-address-mask:hover { color: #fff; }
+}
